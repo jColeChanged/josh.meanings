@@ -7,12 +7,8 @@
   (:gen-class))
 
 
+(set! *warn-on-reflection* true)
 
-(defn write-large-test-file
-  []
-  (with-open [writer (io/writer "test.csv")]
-    (->> (repeatedly 10000000 (fn [] (repeatedly 3 #(rand-int 1000))))
-         (csv/write-csv writer))))
 
 ;; Program state is tracked indirectly via files so that we can run 
 ;; on datasets that are too large to fit in memory. Points, centroids, 
@@ -22,7 +18,6 @@
 ;; the points filename are passed into the program as command line 
 ;; arguments. Domain is the valid domain for each point axis. It is not 
 ;; a file reference, but a vector [min, max] for each axis of points.
-
 (defrecord KMeansState [k points centroids assignments history domain])
 
 
@@ -115,7 +110,7 @@
                 writer (io/writer (:assignments k-means-state))]
       (->> (csv/read-csv reader)
            (map read-point)
-           (map #(find-closest-centroid centroids %))
+           (pmap #(find-closest-centroid centroids %))
            (map str)
            (csv/write-csv writer)))))
 
@@ -188,11 +183,6 @@
        (reduce mr-mean-reducer (means k m) (map vector assigned-centroids points))))))
 
 
-
-
-
-
-
 (defn update-history
   "Adds the latest objective metric to the history file."
   [k-means-state optimization-metric]
@@ -208,7 +198,6 @@
     (catch java.io.FileNotFoundException _ [])))
 
 
-
 (defn should-continue-optimizing?
   "Check whether the optimization process has stopped improving."
   [k-means-state]
@@ -220,7 +209,6 @@
      (< (count history) 100)
      (or (< (count history) 3)
          (apply not= (take-last 3 history))))))
-
 
 
 (defn centroids-exist? [k-means-state]
@@ -245,13 +233,14 @@
       (update-history k-means-state (calculate-objective k-means-state)))))
 
 
+(defn parse-integer [#^String x] (Integer. x))
 
 (def cli-options
   [[nil "--input File containing points to categorize."
     :id :filename]
    [nil "--k Number of clusters."
     :id :k
-    :parse-fn #(Integer. %)]
+    :parse-fn parse-integer]
    ["-h" "--help"]])
 
 
