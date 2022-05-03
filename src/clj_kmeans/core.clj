@@ -1,9 +1,13 @@
 (ns clj-kmeans.core
-  (:require [clojure.tools.cli :refer [parse-opts]])
+  (:require
+   [clojure.tools.cli :refer [parse-opts]]
+   [clojure.core.reducers :as r]
+   [clojure.string :as string])
   (:use [clojure.data.csv :as csv]
         [clojure.java.io :as io]
-        [clojure.string :as string]
-        [fastmath.vector :as math])
+        [tech.v3.dataset :as ds]
+        [fastmath.vector :as math]
+        [tech.v3.libs.poi])
   (:gen-class))
 
 
@@ -24,36 +28,32 @@
 ;; Points are stored in files. So we need to parse the files to get the points.
 (defn clj-double
   [s]
-  (Double/parseDouble s))
+  (Float/parseFloat s))
 
 (defn read-point
   [row]
-  (vec (map clj-double row)))
+  (map clj-double row))
 
 (defn points
   [reader]
   (map read-point (csv/read-csv reader)))
 
-(defn points-reducer
-  [f]
-  (fn [filename]
-    (with-open [reader (io/reader filename)]
-      (->> (read-csv reader)
-           (map read-point)
-           (reduce f)))))
-
-(def points-min (points-reducer math/emn))
-(def points-max (points-reducer math/emx))
-
+(defn get-stats
+  [filename]
+     ;; The reader is configured to buffer chunks of the file 
+     ;; in memory to ensure the file can be processed as fast 
+     ;; as possible.
+  (ds/brief
+   (ds/->dataset filename {:header-row? false :file-type :csv})))
 
 (defn find-domain [filename]
-  (println "Computing domain")
-  (map vector (points-min filename) (points-max filename)))
+  (println "Computing summary statistics...")
+  (get-stats filename))
 
 ;; Generate a random point within the domain
 (defn random-between [domain]
-  (let [min (first domain)
-        max (second domain)
+  (let [min (:min domain)
+        max (:max domain)
         random-number (rand)]
     (+ (* random-number (- max min)) min)))
 
@@ -105,28 +105,37 @@
 (defn generate-assignments
   [k-means-state]
   (println "Generating assignments.")
-  (let [centroids (read-centroids-from-file k-means-state)]
-    (with-open [reader (io/reader (:points k-means-state))
-                writer (io/writer (:assignments k-means-state))]
-      (->> (csv/read-csv reader)
-           (map read-point)
-           (pmap #(find-closest-centroid centroids %))
-           (map str)
-           (csv/write-csv writer)))))
+  (let [dataset (ds/->dataset (:points k-means-state) {:header-row? false :file-type :csv})
+        columns (ds/column-names dataset)
+        to-vec (fn [row] (map #(get row %) columns))
+        assign (comp
+                (partial hash-map :assignment)
+                (partial
+                 find-closest-centroid
+                 (read-centroids-from-file k-means-state))
+                to-vec)]
+    (ds/write!
+     (ds/select-columns (ds/row-map dataset assign) [:assignment])
+     (:assignments k-means-state)
+     {:headers? false :file-type :csv})))
+
+
 
 (defn parse-assignments
   [reader]
   (map #(Integer/parseInt %) (map first (csv/read-csv reader))))
 
+
+
+;; "Elapsed time: 33741.2376 msecs"
 (defn calculate-objective
   [k-means-state]
   (println "Calculating objective.")
-  (let [centroids (read-centroids-from-file k-means-state)]
-    (with-open [assignments-reader (io/reader (:assignments k-means-state))
-                points-reader (io/reader (:points k-means-state))]
-      (let [assigned-centroids (map #(nth centroids %) (parse-assignments assignments-reader))
-            points (points points-reader)]
-        (reduce + 0 (map calculate-distance assigned-centroids points))))))
+  (let [centroids (read-centroids-from-file k-means-state)
+        assignments (ds/->dataset (:assignments k-means-state) {:header-row? false :file-type :csv})
+        points (ds/->dataset (:points k-means-state) {:header-row? false :file-type :csv})
+        assigned-centroids (map #(nth centroids (first %)) (ds/rowvecs assignments))]
+    (reduce + 0 (map calculate-distance assigned-centroids (ds/rowvecs points)))))
 
 
 ;; Centroids in k-means clustering are computed by finding the center of 
@@ -168,21 +177,24 @@
       (mean kr-mean))))
 
 
+;; "Elapsed time: 51275.2993 msecs"
 (defn update-centroids
   [k-means-state]
   (println "Reclalcuating centroid centers based on assignments")
-  (with-open [assignments-reader (io/reader (:assignments k-means-state))
-              points-reader (io/reader (:points k-means-state))]
-    (let [assigned-centroids (parse-assignments assignments-reader)
-          points (map read-point (csv/read-csv points-reader))
-          domain (:domain k-means-state)
-          m (count domain)
-          k (:k k-means-state)]
-      (map
-       (partial new-centroid domain)
-       (reduce mr-mean-reducer (means k m) (map vector assigned-centroids points))))))
+  (let [domain (:domain k-means-state)
+        m (count domain)
+        k (:k k-means-state)]
+    (map
+     (partial new-centroid domain)
+     (reduce mr-mean-reducer (means k m)
+             (map vector
+                  (map first (ds/rowvecs (ds/->dataset (:assignments k-means-state) {:header-row? false :file-type :csv})))
+                  (ds/rowvecs (ds/->dataset (:points k-means-state) {:header-row? false :file-type :csv})))))))
 
+(def state (initialize-k-means-state "test.csv" 5))
+(time (update-centroids state))
 
+;; (time (update-centroids state))
 (defn update-history
   "Adds the latest objective metric to the history file."
   [k-means-state optimization-metric]
@@ -264,6 +276,3 @@
         (println "Running k-means with k of" (str k) "on file" (str filename))
         (k-means filename k))))
   (System/exit 0))
-
-
-

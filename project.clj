@@ -3,8 +3,9 @@
   :url "https://github.com/jcolechanged/clj-kmeans"
   :license {:name "The MIT License"
             :url "https://opensource.org/licenses/MIT"}
-  :dependencies [[org.clojure/clojure "1.9.0"]
+  :dependencies [[org.clojure/clojure "1.10.3"]
                  [org.clojure/data.csv "1.0.1"]
+                 [techascent/tech.ml.dataset "6.085"]
                  [org.clojure/tools.cli "1.0.206"]
                  [generateme/fastmath "2.1.8"]]
   :main clj-kmeans.core
