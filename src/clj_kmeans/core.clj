@@ -1,8 +1,6 @@
 (ns clj-kmeans.core
   (:require
-   [clojure.tools.cli :refer [parse-opts]]
-   [clojure.core.reducers :as r]
-   [clojure.string :as string])
+   [clojure.tools.cli :refer [parse-opts]])
   (:use [clojure.data.csv :as csv]
         [clojure.java.io :as io]
         [tech.v3.dataset :as ds]
@@ -24,19 +22,6 @@
 ;; a file reference, but a vector [min, max] for each axis of points.
 (defrecord KMeansState [k points centroids assignments history domain])
 
-
-;; Points are stored in files. So we need to parse the files to get the points.
-(defn clj-double
-  [s]
-  (Float/parseFloat s))
-
-(defn read-point
-  [row]
-  (map clj-double row))
-
-(defn points
-  [reader]
-  (map read-point (csv/read-csv reader)))
 
 (defn get-stats
   [filename]
@@ -89,17 +74,16 @@
 ;; Read and realize centroids from a file.
 (defn read-centroids-from-file
   [k-means-state]
-  (let [filename (:centroids k-means-state)]
-    (with-open [reader (io/reader filename)]
-      (vec (points reader)))))
+  (ds/rowvecs
+   (ds/->dataset
+    (:centroids k-means-state) {:file-type :csv :header-row? false})))
 
 ;; Compute earth mover distance as distance metric for clustering.
-(defn calculate-distance [v1 v2]
-  (math/dist-emd v1 v2))
+(def distance-fn math/dist-emd)
 
 (defn find-closest-centroid
   [centroids point]
-  (let [distances (map #(calculate-distance % point) centroids)]
+  (let [distances (map (partial distance-fn point) centroids)]
     (first (apply min-key second (map-indexed vector distances)))))
 
 (defn generate-assignments
@@ -120,13 +104,6 @@
      {:headers? false :file-type :csv})))
 
 
-
-(defn parse-assignments
-  [reader]
-  (map #(Integer/parseInt %) (map first (csv/read-csv reader))))
-
-
-
 ;; "Elapsed time: 33741.2376 msecs"
 (defn calculate-objective
   [k-means-state]
@@ -135,7 +112,7 @@
         assignments (ds/->dataset (:assignments k-means-state) {:header-row? false :file-type :csv})
         points (ds/->dataset (:points k-means-state) {:header-row? false :file-type :csv})
         assigned-centroids (map #(nth centroids (first %)) (ds/rowvecs assignments))]
-    (reduce + 0 (map calculate-distance assigned-centroids (ds/rowvecs points)))))
+    (reduce + 0 (map distance-fn assigned-centroids (ds/rowvecs points)))))
 
 
 ;; Centroids in k-means clustering are computed by finding the center of 
@@ -191,10 +168,6 @@
                   (map first (ds/rowvecs (ds/->dataset (:assignments k-means-state) {:header-row? false :file-type :csv})))
                   (ds/rowvecs (ds/->dataset (:points k-means-state) {:header-row? false :file-type :csv})))))))
 
-(def state (initialize-k-means-state "test.csv" 5))
-(time (update-centroids state))
-
-;; (time (update-centroids state))
 (defn update-history
   "Adds the latest objective metric to the history file."
   [k-means-state optimization-metric]
