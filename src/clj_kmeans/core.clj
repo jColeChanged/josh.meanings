@@ -4,6 +4,8 @@
   (:use [clojure.data.csv :as csv]
         [clojure.java.io :as io]
         [tech.v3.dataset :as ds]
+        [tech.v3.dataset.math :as ds-math]
+        [tech.v3.dataset.io.csv :as ds-csv]
         [fastmath.vector :as math]
         [tech.v3.libs.poi])
   (:gen-class))
@@ -23,24 +25,33 @@
 (defrecord KMeansState [k points centroids assignments history domain])
 
 
-(defn get-stats
+(defn load-dataset-from-file
   [filename]
-     ;; The reader is configured to buffer chunks of the file 
-     ;; in memory to ensure the file can be processed as fast 
-     ;; as possible.
-  (ds/brief
-   (ds/->dataset filename {:header-row? false :file-type :csv})))
+  (ds-csv/csv->dataset-seq filename))
+
+(def minmax
+  (fn
+    ([result]
+     result)
+    ([result input]
+     (map vector
+          (map min (map first result) (map first input))
+          (map max (map second result) (map second input))))))
 
 (defn find-domain [filename]
-  (println "Computing summary statistics...")
-  (get-stats filename))
+  (println "Finding the domain...")
+  (transduce
+   (comp (map ds/brief)
+         (map (partial map (juxt :min :max))))
+   minmax
+   (repeat [10000 -10000])
+   (load-dataset-from-file filename)))
+
+
 
 ;; Generate a random point within the domain
-(defn random-between [domain]
-  (let [min (:min domain)
-        max (:max domain)
-        random-number (rand)]
-    (+ (* random-number (- max min)) min)))
+(defn random-between [[min max]]
+  (+ (* (rand) (- max min)) min))
 
 (defn random-centroid [domain] (map random-between domain))
 
