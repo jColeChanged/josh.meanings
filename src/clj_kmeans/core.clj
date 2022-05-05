@@ -1,10 +1,11 @@
 (ns clj-kmeans.core
   (:require
    [clojure.tools.cli :refer [parse-opts]]
-   [clojure.core.reducers :as reducers])
+   [clojure.core.reducers :as reducers]
+   [tech.v3.dataset :as ds])
   (:use [clojure.data.csv :as csv]
         [clojure.java.io :as io]
-        [tech.v3.dataset :as ds]
+        [tech.v3.libs.arrow :as ds-arrow]
         [tech.v3.dataset.math :as ds-math]
         [tech.v3.dataset.io.csv :as ds-csv]
         [fastmath.vector :as math]
@@ -46,15 +47,12 @@
   (println "Finding the domain...")
   (apply
    map
-   vector
-   ;;(reduce
    (reducers/fold
     (fn
       ([] [(repeat 1000) (repeat -1000)])
       ([x y]
        [(math/emn (first x) (first y))
         (math/emx (second x) (second y))]))
-  ;;  [[1000 1000 1000] [-1000 -1000 -1000]]
     (->>  (load-dataset-from-file filename)
           (map #(ds/brief % {:stat-names [:min :max]}))
           (map (juxt
@@ -110,22 +108,41 @@
   (let [distances (map (partial distance-fn point) centroids)]
     (first (apply min-key second (map-indexed vector distances)))))
 
+;; (defn generate-assignments
+;;   [k-means-state]
+;;   (println "Generating assignments.")
+;;   (let [dataset (ds-csv/csv->dataset-seq (:points k-means-state) {:header-row? false :file-type :csv})
+;;         columns (ds/column-names (first dataset))
+;;         to-vec (fn [row] (map #(get row %) columns))
+;;         assign (comp
+;;                 (partial hash-map :assignment)
+;;                 (partial
+;;                  find-closest-centroid
+;;                  (read-centroids-from-file k-means-state))
+;;                 to-vec)]
+;;     (ds/write!
+;;      (ds/select-columns (ds/row-map dataset assign) [:assignment])
+;;      (:assignments k-means-state)
+;;      {:headers? false :file-type :csv})))
+
 (defn generate-assignments
   [k-means-state]
   (println "Generating assignments.")
-  (let [dataset (ds/->dataset (:points k-means-state) {:header-row? false :file-type :csv})
-        columns (ds/column-names dataset)
+  (let [dataset (ds-csv/csv->dataset-seq (:points k-means-state) {:header-row? false :file-type :csv})
+        columns (ds/column-names (first dataset))
         to-vec (fn [row] (map #(get row %) columns))
         assign (comp
                 (partial hash-map :assignment)
                 (partial
                  find-closest-centroid
                  (read-centroids-from-file k-means-state))
-                to-vec)]
-    (ds/write!
-     (ds/select-columns (ds/row-map dataset assign) [:assignment])
-     (:assignments k-means-state)
-     {:headers? false :file-type :csv})))
+                to-vec)
+        map-assignment (comp
+                        (map #(ds/row-map % assign))
+                        (map #(ds/select-columns % [:assignment])))]
+  ;;  (ds-arrow/dataset-seq->stream!
+  ;;   (:assignments k-means-state)
+     (ediction map-assignment (take 2 dataset)))))
 
 
 ;; "Elapsed time: 33741.2376 msecs"
@@ -220,12 +237,24 @@
          (apply not= (take-last 3 history))))))
 
 
-(defn centroids-exist? [k-means-state]
-  (.exists (clojure.java.io/file (:centroids k-means-state))))
+
+(defn file?
+  [filename]
+  (.exists (clojure.java.io/file filename)))
+
 
 (defn write-centroids [filename centroids]
   (with-open [writer (io/writer filename)]
     (csv/write-csv writer centroids)))
+
+(defn generate-centroids
+  [k-means-state]
+  (write-centroids
+   (:centroids k-means-state)
+   (if (file? (:centroids k-means-state))
+     (update-centroids k-means-state)
+     (generate-k-initial-centroids k-means-state))))
+
 
 (defn k-means
   [points-file k]
@@ -233,11 +262,7 @@
     (println "Starting optimization process for" k-means-state)
     (while (should-continue-optimizing? k-means-state)
       (println "Starting optimization iteration.")
-      (write-centroids
-       (:centroids k-means-state)
-       (if (centroids-exist? k-means-state)
-         (update-centroids k-means-state)
-         (generate-k-initial-centroids k-means-state)))
+      (generate-centroids k-means-state)
       (generate-assignments k-means-state)
       (update-history k-means-state (calculate-objective k-means-state)))))
 
@@ -252,8 +277,6 @@
     :parse-fn parse-integer]
    ["-h" "--help"]])
 
-
-
 (defn print-usage-instructions
   [options]
   (println "Usage: k-means --input <filename.csv> --k <k>\n")
@@ -263,13 +286,23 @@
 
 (defn -main
   [& args]
-  (let [options (parse-opts args cli-options)]
-    (if (or (:help options) (:errors options))
-      (do
-        (print-usage-instructions options)
-        (System/exit 1))
-      (let [filename (-> options :options :filename)
-            k (-> options :options :k)]
-        (println "Running k-means with k of" (str k) "on file" (str filename))
-        (k-means filename k))))
-  (System/exit 0))
+
+  (System/exit
+   (let [options (parse-opts args cli-options)]
+     (if (or (:help options) (:errors options))
+       (do
+         (print-usage-instructions options)
+         (System/exit 1))
+       (let [filename (-> options :options :filename)
+             k (-> options :options :k)]
+         (if (file? filename)
+           (do
+             (println "Running k-means with k of" (str k) "on file" (str filename))
+             (k-means filename k)
+             0)
+           (do
+             (println "File" (str filename) "does not exist.")
+             1)))))))
+
+
+

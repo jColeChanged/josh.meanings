@@ -22,3 +22,10 @@
     (testing "Test that getting domain on a large file works."
       (println (find-domain filename)))))
 
+
+(deftest test-generate-assignments
+  (let [filename "test.csv"]
+    (write-large-test-file filename 100000000)
+    (let [state (initialize-k-means-state "test.csv" 3)]
+      (testing "Test that generating assignments work on large files."
+        (generate-assignments state)))))
