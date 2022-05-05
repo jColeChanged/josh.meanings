@@ -1,6 +1,7 @@
 (ns clj-kmeans.core
   (:require
-   [clojure.tools.cli :refer [parse-opts]])
+   [clojure.tools.cli :refer [parse-opts]]
+   [clojure.core.reducers :as reducers])
   (:use [clojure.data.csv :as csv]
         [clojure.java.io :as io]
         [tech.v3.dataset :as ds]
@@ -29,24 +30,36 @@
   [filename]
   (ds-csv/csv->dataset-seq filename))
 
-(def minmax
-  (fn
-    ([result]
-     result)
-    ([result input]
-     (map vector
-          (map min (map first result) (map first input))
-          (map max (map second result) (map second input))))))
+
+
+;; (defn find-domain [filename]
+;;   (println "Finding the domain...")
+;;   (transduce
+;;    (comp (map ds/brief)
+;;          (map (partial map (juxt :min :max))))
+;;    minmax
+;;    (repeat [10000 -10000])
+;;    (load-dataset-from-file filename)))
+
 
 (defn find-domain [filename]
   (println "Finding the domain...")
-  (transduce
-   (comp (map ds/brief)
-         (map (partial map (juxt :min :max))))
-   minmax
-   (repeat [10000 -10000])
-   (load-dataset-from-file filename)))
-
+  (apply
+   map
+   vector
+   ;;(reduce
+   (reducers/fold
+    (fn
+      ([] [(repeat 1000) (repeat -1000)])
+      ([x y]
+       [(math/emn (first x) (first y))
+        (math/emx (second x) (second y))]))
+  ;;  [[1000 1000 1000] [-1000 -1000 -1000]]
+    (->>  (load-dataset-from-file filename)
+          (map #(ds/brief % {:stat-names [:min :max]}))
+          (map (juxt
+                (partial map :min)
+                (partial map :max)))))))
 
 
 ;; Generate a random point within the domain
