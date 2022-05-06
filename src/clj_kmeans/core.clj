@@ -55,7 +55,8 @@
 (defn random-between [[min max]]
   (+ (* (rand) (- max min)) min))
 
-(defn random-centroid [domain] (map random-between domain))
+(defn random-centroid [domain]
+  (map random-between (map vector (first domain) (second domain))))
 
 (defn generate-k-initial-centroids
   [{:keys [domain k]}]
@@ -117,16 +118,29 @@
      (eduction map-assignment dataset))))
 
 
-;; "Elapsed time: 33741.2376 msecs"
+
 (defn calculate-objective
   [k-means-state]
   (println "Calculating objective.")
   (let [centroids (read-centroids-from-file k-means-state)
-        assignments (ds/->dataset (:assignments k-means-state) {:header-row? false :file-type :csv})
-        points (ds/->dataset (:points k-means-state) {:header-row? false :file-type :csv})
-        assigned-centroids (map #(nth centroids (first %)) (ds/rowvecs assignments))]
-    (reduce + 0 (map distance-fn assigned-centroids (ds/rowvecs points)))))
+        assign->centroid (partial nth centroids)
+        assigns->centroids (comp (map ds/rowvecs)
+                                 (map (partial map first))
+                                 (map (partial map assign->centroid)))]
+                           ;;(map first)
+                           ;;(map (partial nth centroids)))]
+   ;; (first (
+    (reduce + 0
+            (map (partial reduce + 0)
+                 (map (partial map distance-fn)
+                      (eduction
+                       assigns->centroids
+                       (ds-arrow/stream->dataset-seq (:assignments k-means-state)))
+                      (eduction (map ds/rowvecs) (load-dataset-from-file (:points k-means-state))))))))
 
+(comment
+  (def state (initialize-k-means-state "test.csv" 5))
+  (calculate-objective state))
 
 ;; Centroids in k-means clustering are computed by finding the center of 
 ;; the points assigned to each centroid. This is done by averaging the 
