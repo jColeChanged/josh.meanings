@@ -1,4 +1,4 @@
-(defproject clj-kmeans "0.1.0-SNAPSHOT"
+(defproject clj-kmeans "0.1.1-SNAPSHOT"
   :description "Clojure implementation of K-Means clustering with support for larger than memory datasets."
   :url "https://github.com/jcolechanged/clj-kmeans"
   :license {:name "The MIT License"
