@@ -72,14 +72,13 @@
 ;; Initalize k-means state
 (defn initialize-k-means-state
   [points-file k]
-  (prn
-   (KMeansState.
-    k
-    points-file
-    (centroids-filename points-file)
-    (assignments-filename points-file)
-    (history-filename points-file)
-    (find-domain points-file))))
+  (KMeansState.
+   k
+   points-file
+   (centroids-filename points-file)
+   (assignments-filename points-file)
+   (history-filename points-file)
+   (find-domain points-file)))
 
 
 ;; Read and realize centroids from a file.
