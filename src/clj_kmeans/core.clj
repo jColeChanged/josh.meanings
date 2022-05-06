@@ -15,15 +15,13 @@
 
 (set! *warn-on-reflection* true)
 
-
-;; Program state is tracked indirectly via files so that we can run 
+;; k is the number of clusters. 
+;; 
+;; State is tracked indirectly via files so that we can run 
 ;; on datasets that are too large to fit in memory. Points, centroids, 
 ;; assignments, and history are all this type of file references. 
 ;; 
-;; k is a parameter that controls the number of clusters. Both it and 
-;; the points filename are passed into the program as command line 
-;; arguments. Domain is the valid domain for each point axis. It is not 
-;; a file reference, but a vector [min, max] for each axis of points.
+;; Domain is a vector of mins and a vector maxes for each column.
 (defrecord KMeansState [k points centroids assignments history domain])
 
 
@@ -36,7 +34,7 @@
   (println "Finding the domain...")
   (reducers/fold
    (fn
-     ([] [(repeat 1000) (repeat -1000)])
+     ([] [(repeat Integer/MAX_VALUE) (repeat Integer/MIN_VALUE)])
      ([x y]
       [(math/emn (first x) (first y))
        (math/emx (second x) (second y))]))
@@ -127,9 +125,6 @@
         assigns->centroids (comp (map ds/rowvecs)
                                  (map (partial map first))
                                  (map (partial map assign->centroid)))]
-                           ;;(map first)
-                           ;;(map (partial nth centroids)))]
-   ;; (first (
     (reduce + 0
             (map (partial reduce + 0)
                  (map (partial map distance-fn)
