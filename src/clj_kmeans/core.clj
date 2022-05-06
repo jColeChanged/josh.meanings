@@ -2,10 +2,10 @@
   (:require
    [clojure.tools.cli :refer [parse-opts]]
    [clojure.core.reducers :as reducers]
+   [tech.v3.libs.arrow :as ds-arrow]
    [tech.v3.dataset :as ds])
   (:use [clojure.data.csv :as csv]
         [clojure.java.io :as io]
-        [tech.v3.libs.arrow :as ds-arrow]
         [tech.v3.dataset.math :as ds-math]
         [tech.v3.dataset.io.csv :as ds-csv]
         [fastmath.vector :as math]
@@ -29,35 +29,26 @@
 
 (defn load-dataset-from-file
   [filename]
-  (ds-csv/csv->dataset-seq filename))
-
-
-
-;; (defn find-domain [filename]
-;;   (println "Finding the domain...")
-;;   (transduce
-;;    (comp (map ds/brief)
-;;          (map (partial map (juxt :min :max))))
-;;    minmax
-;;    (repeat [10000 -10000])
-;;    (load-dataset-from-file filename)))
+  (ds-csv/csv->dataset-seq filename {:header-row? false :file-type :csv}))
 
 
 (defn find-domain [filename]
   (println "Finding the domain...")
-  (apply
-   map
-   (reducers/fold
-    (fn
-      ([] [(repeat 1000) (repeat -1000)])
-      ([x y]
-       [(math/emn (first x) (first y))
-        (math/emx (second x) (second y))]))
-    (->>  (load-dataset-from-file filename)
-          (map #(ds/brief % {:stat-names [:min :max]}))
-          (map (juxt
-                (partial map :min)
-                (partial map :max)))))))
+  (reducers/fold
+   (fn
+     ([] [(repeat 1000) (repeat -1000)])
+     ([x y]
+      [(math/emn (first x) (first y))
+       (math/emx (second x) (second y))]))
+   (eduction
+    (comp
+     (map #(ds/brief % {:stat-names [:min :max]}))
+     (map (juxt
+           (partial map :min)
+           (partial map :max))))
+    (load-dataset-from-file filename))))
+
+
 
 
 ;; Generate a random point within the domain
@@ -73,10 +64,7 @@
 
 ;; Helper functions to generate filenames for centroids, assignments, 
 ;; and history.
-(defn generate-filename [prefix]
-  (fn [suffix]
-    (println "Generating filename for" prefix)
-    (str prefix "." suffix)))
+(defn generate-filename [prefix] #(str prefix "." %))
 (def centroids-filename (generate-filename "centroids"))
 (def assignments-filename (generate-filename "assignments"))
 (def history-filename (generate-filename "history"))
@@ -84,14 +72,15 @@
 ;; Initalize k-means state
 (defn initialize-k-means-state
   [points-file k]
-  (println "Initializing k means state.")
-  (KMeansState.
-   k
-   points-file
-   (centroids-filename points-file)
-   (assignments-filename points-file)
-   (history-filename points-file)
-   (find-domain points-file)))
+  (prn
+   (KMeansState.
+    k
+    points-file
+    (centroids-filename points-file)
+    (assignments-filename points-file)
+    (history-filename points-file)
+    (find-domain points-file))))
+
 
 ;; Read and realize centroids from a file.
 (defn read-centroids-from-file
@@ -108,22 +97,6 @@
   (let [distances (map (partial distance-fn point) centroids)]
     (first (apply min-key second (map-indexed vector distances)))))
 
-;; (defn generate-assignments
-;;   [k-means-state]
-;;   (println "Generating assignments.")
-;;   (let [dataset (ds-csv/csv->dataset-seq (:points k-means-state) {:header-row? false :file-type :csv})
-;;         columns (ds/column-names (first dataset))
-;;         to-vec (fn [row] (map #(get row %) columns))
-;;         assign (comp
-;;                 (partial hash-map :assignment)
-;;                 (partial
-;;                  find-closest-centroid
-;;                  (read-centroids-from-file k-means-state))
-;;                 to-vec)]
-;;     (ds/write!
-;;      (ds/select-columns (ds/row-map dataset assign) [:assignment])
-;;      (:assignments k-means-state)
-;;      {:headers? false :file-type :csv})))
 
 (defn generate-assignments
   [k-means-state]
@@ -140,9 +113,9 @@
         map-assignment (comp
                         (map #(ds/row-map % assign))
                         (map #(ds/select-columns % [:assignment])))]
-  ;;  (ds-arrow/dataset-seq->stream!
-  ;;   (:assignments k-means-state)
-     (ediction map-assignment (take 2 dataset)))))
+    (ds-arrow/dataset-seq->stream!
+     (:assignments k-means-state)
+     (eduction map-assignment dataset))))
 
 
 ;; "Elapsed time: 33741.2376 msecs"
@@ -174,12 +147,25 @@
   [k m]
   (vec (repeatedly k #(MRMean. (vec (repeat m 0.0)) 0))))
 
+
+(defn add-mr-mean
+  [mr-mean-1 mr-mean-2]
+  (-> mr-mean-1
+      (update-in [:count] (fn [count] (+ count (:count mr-mean-2))))
+      (update-in [:vector] (fn [vector] (math/add vector (:vector mr-mean-2))))))
+
+(defn mr-mean-combiner
+  [mr-means-1 mr-means-2]
+  (map add-mr-mean mr-means-1 mr-means-2))
+
 (defn mr-mean-reducer
   "Update MRMean according to a point's assignment."
   [mr-mean [assignment point]]
   (-> mr-mean
       (update-in [assignment :count] inc)
       (update-in [assignment :vector] (fn [vector] (math/add vector point)))))
+
+
 
 (defn mean
   "Find the mean for a kr-mean."
@@ -195,19 +181,30 @@
       (mean kr-mean))))
 
 
-;; "Elapsed time: 51275.2993 msecs"
 (defn update-centroids
   [k-means-state]
   (println "Reclalcuating centroid centers based on assignments")
   (let [domain (:domain k-means-state)
-        m (count domain)
-        k (:k k-means-state)]
+        m (count (first domain))
+        k (:k k-means-state)
+        assignments-dataset (ds-arrow/stream->dataset-seq (:assignments k-means-state))
+        points-dataset (load-dataset-from-file (:points k-means-state))]
     (map
      (partial new-centroid domain)
-     (reduce mr-mean-reducer (means k m)
-             (map vector
-                  (map first (ds/rowvecs (ds/->dataset (:assignments k-means-state) {:header-row? false :file-type :csv})))
-                  (ds/rowvecs (ds/->dataset (:points k-means-state) {:header-row? false :file-type :csv})))))))
+
+     (reduce mr-mean-combiner
+             (map
+              (comp
+               (partial reduce mr-mean-reducer (means k m))
+               (partial map vector))
+              (eduction
+               (comp
+                (map ds/rowvecs)
+                (map (partial map first)))
+               assignments-dataset)
+              (eduction
+               (map ds/rowvecs)
+               points-dataset))))))
 
 (defn update-history
   "Adds the latest objective metric to the history file."
