@@ -5,6 +5,7 @@
             :url "https://opensource.org/licenses/MIT"}
   :dependencies [[org.clojure/clojure "1.10.3"]
                  [org.clojure/data.csv "1.0.1"]
+                 [org.clojure/tools.logging "1.2.4"]
                  [techascent/tech.ml.dataset "6.085"]
                  [org.clojure/tools.cli "1.0.206"]
                  [generateme/fastmath "2.1.8"]

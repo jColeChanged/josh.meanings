@@ -2,6 +2,7 @@
   (:require
    [clojure.tools.cli :refer [parse-opts]]
    [clojure.core.reducers :as reducers]
+   [clojure.tools.logging :as log]
    [tech.v3.libs.arrow :as ds-arrow]
    [tech.v3.dataset.reductions :as ds-reduce]
    [tech.v3.dataset :as ds]
@@ -78,7 +79,7 @@
 
 (def assignments-filename
   (comp
-   arrow-filename->csv-filename
+   csv-filename->arrow-filename
    (generate-filename "assignments")))
 
 (def history-filename
@@ -150,9 +151,10 @@
                  (read-centroids-from-file k-means-state))
                 to-vec)
         map-assignment (fn [dataset] (ds/row-map dataset assign))]
-    ;;(ds-arrow/dataset-seq->stream!
-    ;; (:assignments k-means-state)
-    (map map-assignment datasets)))
+    (ds-arrow/dataset-seq->stream!
+     (:assignments k-means-state)
+     (map map-assignment datasets))))
+
 
 (defn calculate-objective
   [k-means-state]
