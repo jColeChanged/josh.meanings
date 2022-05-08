@@ -59,13 +59,13 @@
   (ds/->dataset (vec (repeatedly k #(random-centroid domain)))))
 
 (comment
-  (def state (initialize-k-means-state "test.arrow" 5))
+  (def state (initialize-k-means-state "test.arrows" 5))
   (generate-k-initial-centroids state))
 
 
 ;; Helper functions related to file handling. 
-(def csv-filename->arrow-filename #(clojure.string/replace % #"csv" "arrow"))
-(def arrow-filename->csv-filename #(clojure.string/replace % #"arrow" "csv"))
+(def csv-filename->arrow-filename #(clojure.string/replace % #"csv" "arrows"))
+(def arrow-filename->csv-filename #(clojure.string/replace % #"arrows?" "csv"))
 
 (defn generate-filename
   [prefix]
@@ -99,6 +99,7 @@
     (log/info "Converting" filename "to" arrow-filename)
     (ds-arrow/dataset-seq->stream!
      arrow-filename
+     {:format :ipc}
      (ds-csv/csv->dataset-seq filename {:header-row? false}))
     (log/info "Conversion completed")))
 
@@ -153,6 +154,7 @@
         map-assignment (fn [dataset] (ds/row-map dataset assign))]
     (ds-arrow/dataset-seq->stream!
      (:assignments k-means-state)
+     {:format :ipc}
      (map map-assignment datasets))))
 
 
