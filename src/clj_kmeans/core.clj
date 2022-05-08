@@ -15,7 +15,6 @@
         [tech.v3.libs.poi])
   (:gen-class))
 
-
 (set! *warn-on-reflection* true)
 
 ;; k is the number of clusters. 
@@ -96,8 +95,8 @@
   operations performed against arrow streams."
   [filename]
   (let [arrow-filename (csv-filename->arrow-filename filename)]
-    (println "Recieved " filename " which is a csv file.")
-    (println "Converting" filename "to" arrow-filename)
+    (log/info "Recieved" filename "which is a csv file")
+    (log/info "Converting" filename "to" arrow-filename)
     (ds-arrow/dataset-seq->stream!
      arrow-filename
      (ds-csv/csv->dataset-seq filename))))
