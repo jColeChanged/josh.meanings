@@ -14,14 +14,28 @@ cannot be persisted to disk. I hope that you have a painless
 experience working with larger than memory datasets by leveraging 
 this program.
 
-## Caveats
+## Caveats 
 
 Currently, only earth mover distance is supported as distance 
 function.
 
 ## Usage
 
+You can input data using either:
+
 ```
-lein build
-lein run -- -i input.csv -k 5
+lein run -- --input input.csv --k 5
 ```
+
+Or alternatively you can pass in an arrow file.
+
+```
+lein run -- --input input.arrow --k 5
+```
+
+After execution you will be left with several files. The 
+history.input.csv file will contain information about training 
+runs like the number of iterations that were performed. 
+assignments.input.arrow which will contain the assingments for 
+each points. Finally, centroids.input.csv with which you can 
+use for the purpose of classification.
