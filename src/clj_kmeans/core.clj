@@ -28,7 +28,7 @@
 
 
 (defn find-domain [filename]
-  (println "Finding the domain...")
+  (log/info "Finding the domain")
   (reducers/fold
    (fn
      ([] [(repeat Integer/MAX_VALUE) (repeat Integer/MIN_VALUE)])
@@ -55,7 +55,7 @@
 
 (defn generate-k-initial-centroids
   [{:keys [domain k]}]
-  (println "Generating initial centroids.")
+  (log/info "Generating initial centroids")
   (ds/->dataset (vec (repeatedly k #(random-centroid domain)))))
 
 (comment
@@ -99,7 +99,8 @@
     (log/info "Converting" filename "to" arrow-filename)
     (ds-arrow/dataset-seq->stream!
      arrow-filename
-     (ds-csv/csv->dataset-seq filename))))
+     (ds-csv/csv->dataset-seq filename {:header-row? false}))
+    (log/info "Conversion completed")))
 
 (defn file?
   "Returns true if a file exists and false otherwise."
@@ -139,7 +140,7 @@
 
 (defn generate-assignments
   [k-means-state]
-  (println "Generating assignments.")
+  (log/info "Generating assignments")
   (let [datasets (ds-arrow/stream->dataset-seq (:points k-means-state))
         columns (ds/column-names (first datasets))
         to-vec (fn [row] (map #(get row %) columns))
@@ -157,7 +158,7 @@
 
 (defn calculate-objective
   [k-means-state]
-  (println "Calculating objective.")
+  (log/info "Calculating objective")
   (let [centroids (read-centroids-from-file k-means-state)
         assign->centroid (partial nth centroids)
         assigns->centroids (comp (map ds/rows)
@@ -173,7 +174,11 @@
 
 (comment
   (def state (initialize-k-means-state "test.arrow" 5))
+  (csv-seq-filename->arrow-stream "test.csv")
+  (ds/head (first (ds-arrow/stream->dataset-seq (:points state))))
 
+
+  (update-centroids state)
   (read-centroids-from-file state)
 
   (generate-assignments state)
@@ -186,7 +191,7 @@
 
 (defn update-centroids
   [k-means-state]
-  (println "Recalculating centroids based on assignments")
+  (log/info "Recalculating centroids based on assignments")
   (ds/drop-columns
    (ds-reduce/group-by-column-agg
     "assignment"
@@ -201,7 +206,7 @@
 (defn update-history
   "Adds the latest objective metric to the history file."
   [k-means-state optimization-metric]
-  (println "Latest objective metric is" optimization-metric)
+  (log/info "Latest objective metric is" optimization-metric)
   (spit (:history k-means-state) (apply str optimization-metric "\n") :append true))
 
 (defn history
@@ -216,7 +221,7 @@
 (defn should-continue-optimizing?
   "Check whether the optimization process has stopped improving."
   [k-means-state]
-  (println "Checking whether to continue optimizing.")
+  (log/info "Checking whether to continue optimizing")
   (let [history (history k-means-state)]
     (and
      ;; Continue optimization if the history is not long enough
@@ -239,10 +244,11 @@
 
 (defn k-means
   [points-file k]
+  (log/info "Running k-means with k of" (str k) "on file" points-file)
   (let [k-means-state (initialize-k-means-state points-file k)]
-    (println "Starting optimization process for" k-means-state)
+    (log/info "Starting optimization process for" k-means-state)
     (while (should-continue-optimizing? k-means-state)
-      (println "Starting optimization iteration.")
+      (log/info "Starting optimization iteration")
       (generate-centroids k-means-state)
       (generate-assignments k-means-state)
       (update-history k-means-state (calculate-objective k-means-state)))))
@@ -280,7 +286,6 @@
            (let [arrow-filename (csv-filename->arrow-filename filename)]
              (when (not (file? arrow-filename))
                (csv-seq-filename->arrow-stream filename))
-             (println "Running k-means with k of" (str k) "on file" arrow-filename)
              (k-means arrow-filename k)
              0)
            (do
