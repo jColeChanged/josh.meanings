@@ -15,5 +15,5 @@
                  [net.java.dev.jna/jna "5.10.0"]
                  [com.github.luben/zstd-jni "1.5.1-1"]]
   :main clj-kmeans.core
-  :jvm-opts ["-Xmx1G"]
+  :jvm-opts ["-Xmx2g"]
   :repl-options {:init-ns clj-kmeans.core})
