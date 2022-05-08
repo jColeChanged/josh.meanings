@@ -3,7 +3,9 @@
    [clojure.tools.cli :refer [parse-opts]]
    [clojure.core.reducers :as reducers]
    [tech.v3.libs.arrow :as ds-arrow]
-   [tech.v3.dataset :as ds])
+   [tech.v3.dataset.reductions :as ds-reduce]
+   [tech.v3.dataset :as ds]
+   [clojure.string])
   (:use [clojure.data.csv :as csv]
         [clojure.java.io :as io]
         [tech.v3.dataset.math :as ds-math]
@@ -25,9 +27,24 @@
 (defrecord KMeansState [k points centroids assignments history domain])
 
 
-(defn load-dataset-from-file
+(def csv-filename->arrow-filename #(clojure.string/replace % #"csv" "arrow"))
+
+(defn csv-seq-filename->arrow-stream
+  "Converts a csv file into an arrow stream.
+   
+  CSV isn't a well optimized format for doing large computations.                                                        
+  Computing the min and max of each column working with optimized 
+  csv seqs can take two orders of magnitude longer than the same 
+  operations performed against arrow streams."
   [filename]
-  (ds-csv/csv->dataset-seq filename {:header-row? false :file-type :csv}))
+  (let [arrow-filename (csv-filename->arrow-filename filename)]
+    (println "Recieved " filename " which is a csv file.")
+    (println "Converting" filename "to" arrow-filename)
+    (ds-arrow/dataset-seq->stream!
+     arrow-filename
+     (ds-csv/csv->dataset-seq filename))))
+
+
 
 
 (defn find-domain [filename]
@@ -44,7 +61,7 @@
      (map (juxt
            (partial map :min)
            (partial map :max))))
-    (load-dataset-from-file filename))))
+    (ds-arrow/stream->dataset-seq filename))))
 
 
 
@@ -54,18 +71,32 @@
   (+ (* (rand) (- max min)) min))
 
 (defn random-centroid [domain]
-  (map random-between (map vector (first domain) (second domain))))
+  (zipmap
+   (map (partial str "column-") (range))
+   (map random-between
+        (map vector (first domain) (second domain)))))
 
 (defn generate-k-initial-centroids
   [{:keys [domain k]}]
   (println "Generating initial centroids.")
-  (vec (repeatedly k #(random-centroid domain))))
+  (ds/->dataset (vec (repeatedly k #(random-centroid domain)))))
+
+(comment
+  (def state (initialize-k-means-state "test.arrow" 5))
+  (generate-k-initial-centroids state))
+
 
 ;; Helper functions to generate filenames for centroids, assignments, 
 ;; and history.
 (defn generate-filename [prefix] #(str prefix "." %))
-(def centroids-filename (generate-filename "centroids"))
-(def assignments-filename (generate-filename "assignments"))
+(def centroids-filename
+  (comp
+   #(clojure.string/replace % #"\.arrow" ".csv")
+   (generate-filename "centroids")))
+(def assignments-filename
+  (comp
+   #(clojure.string/replace % #"\.csv" ".arrow")
+   (generate-filename "assignments")))
 (def history-filename (generate-filename "history"))
 
 ;; Initalize k-means state
@@ -85,7 +116,7 @@
   [k-means-state]
   (ds/rowvecs
    (ds/->dataset
-    (:centroids k-means-state) {:file-type :csv :header-row? false})))
+    (:centroids k-means-state) {:file-type :csv :header-row? true})))
 
 ;; Compute earth mover distance as distance metric for clustering.
 (def distance-fn math/dist-emd)
@@ -95,12 +126,11 @@
   (let [distances (map (partial distance-fn point) centroids)]
     (first (apply min-key second (map-indexed vector distances)))))
 
-
 (defn generate-assignments
   [k-means-state]
   (println "Generating assignments.")
-  (let [dataset (ds-csv/csv->dataset-seq (:points k-means-state) {:header-row? false :file-type :csv})
-        columns (ds/column-names (first dataset))
+  (let [datasets (ds-arrow/stream->dataset-seq (:points k-means-state))
+        columns (ds/column-names (first datasets))
         to-vec (fn [row] (map #(get row %) columns))
         assign (comp
                 (partial hash-map :assignment)
@@ -108,22 +138,18 @@
                  find-closest-centroid
                  (read-centroids-from-file k-means-state))
                 to-vec)
-        map-assignment (comp
-                        (map #(ds/row-map % assign))
-                        (map #(ds/select-columns % [:assignment])))]
-    (ds-arrow/dataset-seq->stream!
-     (:assignments k-means-state)
-     (eduction map-assignment dataset))))
-
-
+        map-assignment (fn [dataset] (ds/row-map dataset assign))]
+    ;;(ds-arrow/dataset-seq->stream!
+    ;; (:assignments k-means-state)
+    (map map-assignment datasets)))
 
 (defn calculate-objective
   [k-means-state]
   (println "Calculating objective.")
   (let [centroids (read-centroids-from-file k-means-state)
         assign->centroid (partial nth centroids)
-        assigns->centroids (comp (map ds/rowvecs)
-                                 (map (partial map first))
+        assigns->centroids (comp (map ds/rows)
+                                 (map (partial map #(% "assignment")))
                                  (map (partial map assign->centroid)))]
     (reduce + 0
             (map (partial reduce + 0)
@@ -131,88 +157,34 @@
                       (eduction
                        assigns->centroids
                        (ds-arrow/stream->dataset-seq (:assignments k-means-state)))
-                      (eduction (map ds/rowvecs) (load-dataset-from-file (:points k-means-state))))))))
+                      (eduction (map ds/rowvecs) (ds-arrow/stream->dataset-seq (:points k-means-state))))))))
 
 (comment
-  (def state (initialize-k-means-state "test.csv" 5))
+  (def state (initialize-k-means-state "test.arrow" 5))
+
+  (read-centroids-from-file state)
+
+  (generate-assignments state)
+
+  (ds-arrow/stream->dataset-seq (:assignments state))
   (calculate-objective state))
 
-;; Centroids in k-means clustering are computed by finding the center of 
-;; the points assigned to each centroid. This is done by averaging the 
-;; points assigned to each centroid. With k points, that is k means, 
-;; and thus the name of the algorithm.
-;; 
-;; In order to compute the centers of the distrubtions we use a map 
-;; reduce approach. Assignments are integers between 0 and k-1. So we 
-;; can track each centroid as an index into a vector of k centroids.
-;;
-;; Vector will track the sum of the points in the cluster. Count will 
-;; track the number of elements in the cluster.
-(defrecord MRMean [vector count])
 
-(defn means
-  "Creates a vector of k distributions, each with m dimensions."
-  [k m]
-  (vec (repeatedly k #(MRMean. (vec (repeat m 0.0)) 0))))
-
-
-(defn add-mr-mean
-  [mr-mean-1 mr-mean-2]
-  (-> mr-mean-1
-      (update-in [:count] (fn [count] (+ count (:count mr-mean-2))))
-      (update-in [:vector] (fn [vector] (math/add vector (:vector mr-mean-2))))))
-
-(defn mr-mean-combiner
-  [mr-means-1 mr-means-2]
-  (map add-mr-mean mr-means-1 mr-means-2))
-
-(defn mr-mean-reducer
-  "Update MRMean according to a point's assignment."
-  [mr-mean [assignment point]]
-  (-> mr-mean
-      (update-in [assignment :count] inc)
-      (update-in [assignment :vector] (fn [vector] (math/add vector point)))))
-
-
-
-(defn mean
-  "Find the mean for a kr-mean."
-  [mr-mean]
-  (math/div (:vector mr-mean) (:count mr-mean)))
-
-(defn new-centroid
-  "Returns the new centroid computed as a function of kr-mean and the domain."
-  [domain kr-mean]
-  (let [count (:count kr-mean)]
-    (if (zero? count)
-      (random-centroid domain)
-      (mean kr-mean))))
 
 
 (defn update-centroids
   [k-means-state]
-  (println "Reclalcuating centroid centers based on assignments")
-  (let [domain (:domain k-means-state)
-        m (count (first domain))
-        k (:k k-means-state)
-        assignments-dataset (ds-arrow/stream->dataset-seq (:assignments k-means-state))
-        points-dataset (load-dataset-from-file (:points k-means-state))]
-    (map
-     (partial new-centroid domain)
+  (println "Recalculating centroids based on assignments")
+  (ds/drop-columns
+   (ds-reduce/group-by-column-agg
+    "assignment"
+    (zipmap
+     ["column-0" "column-1" "column-2"]
+     (map ds-reduce/mean ["column-0" "column-1" "column-2"]))
+    (ds-arrow/stream->dataset-seq (:assignments k-means-state)))
+   ["assignment"]))
 
-     (reduce mr-mean-combiner
-             (map
-              (comp
-               (partial reduce mr-mean-reducer (means k m))
-               (partial map vector))
-              (eduction
-               (comp
-                (map ds/rowvecs)
-                (map (partial map first)))
-               assignments-dataset)
-              (eduction
-               (map ds/rowvecs)
-               points-dataset))))))
+
 
 (defn update-history
   "Adds the latest objective metric to the history file."
@@ -249,8 +221,7 @@
 
 
 (defn write-centroids [filename centroids]
-  (with-open [writer (io/writer filename)]
-    (csv/write-csv writer centroids)))
+  (ds/write! centroids filename))
 
 (defn generate-centroids
   [k-means-state]
@@ -301,13 +272,12 @@
        (let [filename (-> options :options :filename)
              k (-> options :options :k)]
          (if (file? filename)
-           (do
-             (println "Running k-means with k of" (str k) "on file" (str filename))
-             (k-means filename k)
+           (let [arrow-filename (csv-filename->arrow-filename filename)]
+             (when (not (file? arrow-filename))
+               (csv-seq-filename->arrow-stream filename))
+             (println "Running k-means with k of" (str k) "on file" arrow-filename)
+             (k-means arrow-filename k)
              0)
            (do
              (println "File" (str filename) "does not exist.")
              1)))))))
-
-
-
