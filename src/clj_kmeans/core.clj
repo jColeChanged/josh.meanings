@@ -27,26 +27,6 @@
 (defrecord KMeansState [k points centroids assignments history domain])
 
 
-(def csv-filename->arrow-filename #(clojure.string/replace % #"csv" "arrow"))
-
-(defn csv-seq-filename->arrow-stream
-  "Converts a csv file into an arrow stream.
-   
-  CSV isn't a well optimized format for doing large computations.                                                        
-  Computing the min and max of each column working with optimized 
-  csv seqs can take two orders of magnitude longer than the same 
-  operations performed against arrow streams."
-  [filename]
-  (let [arrow-filename (csv-filename->arrow-filename filename)]
-    (println "Recieved " filename " which is a csv file.")
-    (println "Converting" filename "to" arrow-filename)
-    (ds-arrow/dataset-seq->stream!
-     arrow-filename
-     (ds-csv/csv->dataset-seq filename))))
-
-
-
-
 (defn find-domain [filename]
   (println "Finding the domain...")
   (reducers/fold
@@ -62,9 +42,6 @@
            (partial map :min)
            (partial map :max))))
     (ds-arrow/stream->dataset-seq filename))))
-
-
-
 
 ;; Generate a random point within the domain
 (defn random-between [[min max]]
@@ -86,18 +63,52 @@
   (generate-k-initial-centroids state))
 
 
-;; Helper functions to generate filenames for centroids, assignments, 
-;; and history.
-(defn generate-filename [prefix] #(str prefix "." %))
+;; Helper functions related to file handling. 
+(def csv-filename->arrow-filename #(clojure.string/replace % #"csv" "arrow"))
+(def arrow-filename->csv-filename #(clojure.string/replace % #"arrow" "csv"))
+
+(defn generate-filename
+  [prefix]
+  #(str prefix "." %))
+
 (def centroids-filename
   (comp
-   #(clojure.string/replace % #"\.arrow" ".csv")
+   arrow-filename->csv-filename
    (generate-filename "centroids")))
+
 (def assignments-filename
   (comp
-   #(clojure.string/replace % #"\.csv" ".arrow")
+   arrow-filename->csv-filename
    (generate-filename "assignments")))
-(def history-filename (generate-filename "history"))
+
+(def history-filename
+  (comp
+   arrow-filename->csv-filename
+   (generate-filename "history")))
+
+(defn csv-seq-filename->arrow-stream
+  "Converts a csv file into an arrow stream.
+   
+  CSV isn't a well optimized format for doing large computations.                                                        
+  Computing the min and max of each column working with optimized 
+  csv seqs can take two orders of magnitude longer than the same 
+  operations performed against arrow streams."
+  [filename]
+  (let [arrow-filename (csv-filename->arrow-filename filename)]
+    (println "Recieved " filename " which is a csv file.")
+    (println "Converting" filename "to" arrow-filename)
+    (ds-arrow/dataset-seq->stream!
+     arrow-filename
+     (ds-csv/csv->dataset-seq filename))))
+
+(defn file?
+  "Returns true if a file exists and false otherwise."
+  [filename]
+  (.exists (clojure.java.io/file filename)))
+
+
+
+
 
 ;; Initalize k-means state
 (defn initialize-k-means-state
@@ -214,22 +225,15 @@
          (apply not= (take-last 3 history))))))
 
 
-
-(defn file?
-  [filename]
-  (.exists (clojure.java.io/file filename)))
-
-
-(defn write-centroids [filename centroids]
-  (ds/write! centroids filename))
-
 (defn generate-centroids
   [k-means-state]
-  (write-centroids
-   (:centroids k-means-state)
-   (if (file? (:centroids k-means-state))
-     (update-centroids k-means-state)
-     (generate-k-initial-centroids k-means-state))))
+  (let [filename (:centroids k-means-state)]
+    (ds/write!
+     (if (file? filename)
+       (update-centroids k-means-state)
+       (generate-k-initial-centroids k-means-state))
+     filename)))
+
 
 
 (defn k-means
