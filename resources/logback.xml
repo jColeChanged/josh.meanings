@@ -4,7 +4,7 @@
     <file>meaning.log</file>
     <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
       <!-- daily rollover -->
-      <fileNamePattern>logFile.%d{yyyy-MM-dd}.log</fileNamePattern>
+      <fileNamePattern>meaning.%d{yyyy-MM-dd}.log</fileNamePattern>
 
       <!-- keep 30 days' worth of history capped at 3GB total size -->
       <maxHistory>30</maxHistory>
