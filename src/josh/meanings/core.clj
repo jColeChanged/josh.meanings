@@ -4,40 +4,41 @@
    [josh.meanings.kmeans :refer [k-means csv-filename->arrow-filename csv-seq-filename->arrow-stream file?]])
   (:gen-class))
 
-(defn parse-integer [#^String x] (Integer. x))
-
-(def cli-options
-  [[nil "--input File containing points to categorize."
-    :id :filename]
-   [nil "--k Number of clusters."
-    :id :k
-    :parse-fn parse-integer]
-   ["-h" "--help"]])
 
 (defn print-usage-instructions
   [options]
   (println "Usage: k-means --input <filename.csv> --k <k>\n")
   (println (:summary options))
   (println)
-  (doall (map println (:errors options))))
+  (doall
+   (map println (:errors options)))
+  1)
 
-(defn -main
-  [& args]
+(defn call-k-means
+  [options]
+  (let [filename (:filename (:options options))
+        k (:k (:options options))
+        arrow-filename (csv-filename->arrow-filename filename)]
+    (when (not (file? arrow-filename))
+      (csv-seq-filename->arrow-stream filename))
+    (k-means arrow-filename k)
+    0))
 
+(def cli-options
+  [["-k" "--k k-clusters" "Cluster count"
+    :default 5
+    :parse-fn #(Integer/parseInt %)
+    :validate [#(< 1 % 0x10000) "Must be a number between 1 and 65536"]]
+   ["-i" "--input input" "Input file"
+    :id :filename
+    :parse-fn str
+    :validate [file? "Must be a file"]]
+   ["-h" "--help"]])
+
+
+(defn -main [& args]
   (System/exit
    (let [options (parse-opts args cli-options)]
-     (if (or (:help options) (:errors options))
-       (do
-         (print-usage-instructions options)
-         (System/exit 1))
-       (let [filename (-> options :options :filename)
-             k (-> options :options :k)]
-         (if (file? filename)
-           (let [arrow-filename (csv-filename->arrow-filename filename)]
-             (when (not (file? arrow-filename))
-               (csv-seq-filename->arrow-stream filename))
-             (k-means arrow-filename k)
-             0)
-           (do
-             (println "File" (str filename) "does not exist.")
-             1)))))))
+     (if (or (:errors options) (:help options))
+       (print-usage-instructions options)
+       (call-k-means options)))))
