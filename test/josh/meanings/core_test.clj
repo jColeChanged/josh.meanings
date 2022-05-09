@@ -1,4 +1,4 @@
-(ns clj-kmeans.core-test
+(ns josh.meanings.core-test
   (:require [clojure.test :refer :all]
             [clj-kmeans.core :refer :all])
   (:use [clojure.data.csv :as csv]
@@ -18,7 +18,7 @@
 
 (deftest test-get-domain
   (let [filename "test.csv"]
-    (write-large-test-file filename 100000000)
+    (write-large-test-file filename 1000000000000)
     (testing "Test that getting domain on a large file works."
       (println (find-domain filename)))))
 
