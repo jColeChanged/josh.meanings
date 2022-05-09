@@ -6,12 +6,11 @@
    [tech.v3.dataset.reductions :as ds-reduce]
    [tech.v3.dataset :as ds]
    [clojure.string])
-  (:use [clojure.data.csv :as csv]
-        [clojure.java.io :as io]
-        [tech.v3.dataset.math :as ds-math]
-        [tech.v3.dataset.io.csv :as ds-csv]
-        [fastmath.vector :as math]
-        [tech.v3.libs.poi])
+  (:use
+   [clojure.java.io :as io]
+   [tech.v3.dataset.math :as ds-math]
+   [tech.v3.dataset.io.csv :as ds-csv]
+   [fastmath.vector :as math])
   (:gen-class))
 
 (set! *warn-on-reflection* true)
@@ -213,10 +212,7 @@
 (defn history
   "Return the objective metric history for the given k-means state in chronological order."
   [k-means-state]
-  (try
-    (with-open [reader (io/reader (:history k-means-state))]
-      (vec (map (comp #(Double/parseDouble %) first) (csv/read-csv reader))))
-    (catch java.io.FileNotFoundException _ [])))
+  (ds/rowvecs (ds-csv/csv->dataset (:history k-means-state))))
 
 
 (defn should-continue-optimizing?
