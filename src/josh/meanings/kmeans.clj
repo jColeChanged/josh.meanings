@@ -3,17 +3,75 @@
    [clojure.core.reducers :as reducers]
    [clojure.tools.logging :as log]
    [tech.v3.libs.arrow :as ds-arrow]
+   [tech.v3.dataset.io.csv :as ds-csv]
+   [tech.v3.libs.parquet :as ds-parquet]
    [tech.v3.dataset.reductions :as ds-reduce]
    [tech.v3.dataset :as ds]
    [clojure.string])
   (:use
    [clojure.java.io :as io]
    [tech.v3.dataset.math :as ds-math]
-   [tech.v3.dataset.io.csv :as ds-csv]
+
    [fastmath.vector :as math])
   (:gen-class))
 
 (set! *warn-on-reflection* true)
+
+
+(def formats
+  {:parquet
+   {:writer ds-parquet/ds-seq->parquet
+    :reader ds-parquet/parquet->ds-seq}
+   :arrow
+   {:writer ds-arrow/dataset-seq->stream!
+    :reader ds-arrow/stream->dataset-seq}
+   :arrows
+   {:writer (fn [path ds-seq]
+              (ds-arrow/dataset-seq->stream! path {:format :ipc} ds-seq))
+    :reader (fn [path]
+              (ds-arrow/stream->dataset-seq path {:format :ipc}))}})
+
+
+
+;; Helper functions related to file handling. 
+(def csv-filename->arrow-filename #(clojure.string/replace % #"csv" "arrows"))
+(def arrow-filename->csv-filename #(clojure.string/replace % #"arrows?" "csv"))
+
+(defn read-dataset-seq
+  [k-means-state key]
+  (let [reader-fn (-> k-means-state
+                      :format
+                      formats
+                      :reader)
+        filename (key k-means-state)]
+    (log/info "Loading" filename "with" (:format k-means-state))
+    (reader-fn filename)))
+
+(defn write-dataset-seq
+  [k-means-state key dataset]
+  (let [writer-fn! (-> k-means-state :format formats :writer)
+        filename (key k-means-state)]
+    (log/info "Writing to" filename "with" (:format k-means-state))
+    (writer-fn! filename dataset)))
+
+(defn csv-seq-filename->arrow-stream
+  "Converts a csv file into an arrow stream.
+   
+  CSV isn't a well optimized format for doing large computations.                                                        
+  Computing the min and max of each column working with optimized 
+  csv seqs can take two orders of magnitude longer than the same 
+  operations performed against arrow streams."
+  [filename]
+  (let [arrow-filename (csv-filename->arrow-filename filename)]
+    (log/info "Recieved" filename "which is a csv file")
+    (log/info "Converting" filename "to" arrow-filename)
+    (ds-arrow/dataset-seq->stream!
+     arrow-filename
+     {:format :ipc}
+     (ds-csv/csv->dataset-seq filename {:header-row? false}))
+    (log/info "Conversion completed")))
+
+
 
 ;; k is the number of clusters. 
 ;; 
@@ -22,10 +80,17 @@
 ;; assignments, and history are all this type of file references. 
 ;; 
 ;; Domain is a vector of mins and a vector maxes for each column.
-(defrecord KMeansState [k points centroids assignments history domain])
+(defrecord KMeansState
+           [k
+            points
+            centroids
+            assignments
+            history
+            domain
+            format])
 
 
-(defn find-domain [filename]
+(defn find-domain [k-means-state]
   (log/info "Finding the domain")
   (reducers/fold
    (fn
@@ -39,7 +104,7 @@
      (map (juxt
            (partial map :min)
            (partial map :max))))
-    (ds-arrow/stream->dataset-seq filename))))
+    (read-dataset-seq k-means-state :points))))
 
 ;; Generate a random point within the domain
 (defn random-between [[min max]]
@@ -61,9 +126,6 @@
   (generate-k-initial-centroids state))
 
 
-;; Helper functions related to file handling. 
-(def csv-filename->arrow-filename #(clojure.string/replace % #"csv" "arrows"))
-(def arrow-filename->csv-filename #(clojure.string/replace % #"arrows?" "csv"))
 
 (defn generate-filename
   [prefix]
@@ -84,22 +146,7 @@
    arrow-filename->csv-filename
    (generate-filename "history")))
 
-(defn csv-seq-filename->arrow-stream
-  "Converts a csv file into an arrow stream.
-   
-  CSV isn't a well optimized format for doing large computations.                                                        
-  Computing the min and max of each column working with optimized 
-  csv seqs can take two orders of magnitude longer than the same 
-  operations performed against arrow streams."
-  [filename]
-  (let [arrow-filename (csv-filename->arrow-filename filename)]
-    (log/info "Recieved" filename "which is a csv file")
-    (log/info "Converting" filename "to" arrow-filename)
-    (ds-arrow/dataset-seq->stream!
-     arrow-filename
-     {:format :ipc}
-     (ds-csv/csv->dataset-seq filename {:header-row? false}))
-    (log/info "Conversion completed")))
+
 
 (defn file?
   "Returns true if a file exists and false otherwise."
@@ -113,13 +160,15 @@
 ;; Initalize k-means state
 (defn initialize-k-means-state
   [points-file k]
-  (KMeansState.
-   k
-   points-file
-   (centroids-filename points-file)
-   (assignments-filename points-file)
-   (history-filename points-file)
-   (find-domain points-file)))
+  (let [state (KMeansState.
+               k
+               points-file
+               (centroids-filename points-file)
+               (assignments-filename points-file)
+               (history-filename points-file)
+               nil
+               :arrows)]
+    (assoc state :domain (find-domain state))))
 
 
 ;; Read and realize centroids from a file.
@@ -140,7 +189,7 @@
 (defn generate-assignments
   [k-means-state]
   (log/info "Generating assignments")
-  (let [datasets (ds-arrow/stream->dataset-seq (:points k-means-state))
+  (let [datasets (read-dataset-seq k-means-state :points)
         columns (ds/column-names (first datasets))
         to-vec (fn [row] (map #(get row %) columns))
         assign (comp
@@ -150,10 +199,7 @@
                  (read-centroids-from-file k-means-state))
                 to-vec)
         map-assignment (fn [dataset] (ds/row-map dataset assign))]
-    (ds-arrow/dataset-seq->stream!
-     (:assignments k-means-state)
-     {:format :ipc}
-     (map map-assignment datasets))))
+    (write-dataset-seq k-means-state :assignments (map map-assignment datasets))))
 
 
 (defn calculate-objective
@@ -169,22 +215,9 @@
                  (map (partial map distance-fn)
                       (eduction
                        assigns->centroids
-                       (ds-arrow/stream->dataset-seq (:assignments k-means-state)))
-                      (eduction (map ds/rowvecs) (ds-arrow/stream->dataset-seq (:points k-means-state))))))))
+                       (read-dataset-seq k-means-state :assignments))
+                      (eduction (map ds/rowvecs) (read-dataset-seq k-means-state :points)))))))
 
-(comment
-  (def state (initialize-k-means-state "test.arrow" 5))
-  (csv-seq-filename->arrow-stream "test.csv")
-  (ds/head (first (ds-arrow/stream->dataset-seq (:points state))))
-
-
-  (update-centroids state)
-  (read-centroids-from-file state)
-
-  (generate-assignments state)
-
-  (ds-arrow/stream->dataset-seq (:assignments state))
-  (calculate-objective state))
 
 
 
@@ -198,8 +231,9 @@
     (zipmap
      ["column-0" "column-1" "column-2"]
      (map ds-reduce/mean ["column-0" "column-1" "column-2"]))
-    (ds-arrow/stream->dataset-seq (:assignments k-means-state)))
+    (read-dataset-seq k-means-state :assignments))
    ["assignment"]))
+
 
 
 
@@ -251,7 +285,3 @@
         (generate-centroids k-means-state)
         (generate-assignments k-means-state)
         (update-history! k-means-state (calculate-objective k-means-state))))))
-
-
-
-

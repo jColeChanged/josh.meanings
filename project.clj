@@ -14,7 +14,14 @@
                  [org.lz4/lz4-java "1.8.0"]
                  ;; Required for decompressing lz4 streams with dependent blocks.
                  [net.java.dev.jna/jna "5.10.0"]
-                 [com.github.luben/zstd-jni "1.5.1-1"]]
+                 [com.github.luben/zstd-jni "1.5.1-1"]
+                 [org.apache.parquet/parquet-hadoop "1.12.0"
+                  :exclusions [org.slf4j/slf4j-log4j12]]
+                 [org.apache.hadoop/hadoop-common "3.3.0"
+                  :exclusions [org.slf4j/slf4j-log4j12]]
+                 ;; We literally need this for 1 POJO formatting object.
+                 [org.apache.hadoop/hadoop-mapreduce-client-core  "3.3.0"
+                  :exclusions [org.slf4j/slf4j-log4j12]]]
   :main josh.meanings.core
   :jvm-opts ["-Xmx2g"]
   :repl-options {:init-ns josh.meanings.core})
