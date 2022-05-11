@@ -203,7 +203,7 @@
 
 
 
-(defn update-history
+(defn update-history!
   "Adds the latest objective metric to the history file."
   [k-means-state optimization-metric]
   (log/info "Latest objective metric is" optimization-metric)
@@ -212,8 +212,9 @@
 (defn history
   "Return the objective metric history for the given k-means state in chronological order."
   [k-means-state]
-  (ds/rowvecs (ds-csv/csv->dataset (:history k-means-state))))
-
+  (try
+    (ds/rowvecs (ds-csv/csv->dataset (:history k-means-state) {:header-row? false}))
+    (catch java.io.FileNotFoundException e  [])))
 
 (defn should-continue-optimizing?
   "Check whether the optimization process has stopped improving."
@@ -237,16 +238,20 @@
        (generate-k-initial-centroids k-means-state))
      filename)))
 
-
-
 (defn k-means
   [points-file k]
-  (log/info "Running k-means with k of" (str k) "on file" points-file)
-  (let [k-means-state (initialize-k-means-state points-file k)]
-    (log/info "Starting optimization process for" k-means-state)
-    (while (should-continue-optimizing? k-means-state)
-      (log/info "Starting optimization iteration")
-      (generate-centroids k-means-state)
-      (generate-assignments k-means-state)
-      (update-history k-means-state (calculate-objective k-means-state)))))
+  (let [arrow-filename (csv-filename->arrow-filename points-file)]
+    (when (not (file? arrow-filename))
+      (csv-seq-filename->arrow-stream points-file))
+    (log/info "Running k-means with k of" (str k) "on file" arrow-filename)
+    (let [k-means-state (initialize-k-means-state arrow-filename k)]
+      (log/info "Starting optimization process for" k-means-state)
+      (while (should-continue-optimizing? k-means-state)
+        (log/info "Starting optimization iteration")
+        (generate-centroids k-means-state)
+        (generate-assignments k-means-state)
+        (update-history! k-means-state (calculate-objective k-means-state))))))
+
+
+
 

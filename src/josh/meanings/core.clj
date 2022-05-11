@@ -17,11 +17,8 @@
 (defn call-k-means
   [options]
   (let [filename (:filename (:options options))
-        k (:k (:options options))
-        arrow-filename (csv-filename->arrow-filename filename)]
-    (when (not (file? arrow-filename))
-      (csv-seq-filename->arrow-stream filename))
-    (k-means arrow-filename k)
+        k (:k (:options options))]
+    (k-means filename k)
     0))
 
 (def cli-options
