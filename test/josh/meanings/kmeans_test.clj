@@ -91,13 +91,14 @@
   (with-small-dataset
     (testing "That the program runs without throwing an exception."
       (is (= nil (k-means small-dataset-filename 3)))
-      (let [assignments ((ds/->dataset "assignments.test.small.arrows") "assignments")]
+      (let [assignments ((ds/->dataset "assignments.test.small.arrows") "assignment")]
         (testing "[1 2 3] are all assigned the same value."
           (is (apply = (take 4 assignments))))
         (testing "[4 5 6] are all assigned the same value."
           (is (apply = (take 6 (drop 4 assignments)))))
         (testing "[7 8 9] are assigned the same value."
           (is (apply = (take 3 (drop 10 assignments)))))))))
+
 
 
 
