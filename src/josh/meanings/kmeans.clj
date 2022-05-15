@@ -18,61 +18,98 @@
 (set! *warn-on-reflection* true)
 
 
+;; CSV was extremely slow. Arrow failed to load really large files.
+;; Arrows failed to write extremely small files. So I wanted to try 
+;; parquet but didn't want to continually have to rewrite parsing 
+;; logic as I moved between different file formats. Therefore, I made the 
+;; format used a configuration option rather than a hardcoded function 
+;; call. If and when parquet fails, I'll have an escape hatch to quickly 
+;; try a different file format.
 (def formats
   {:parquet
    {:writer ds-parquet/ds-seq->parquet
-    :reader ds-parquet/parquet->ds-seq}
+    :reader ds-parquet/parquet->ds-seq
+    :suffix ".parquet"}
    :arrow
    {:writer ds-arrow/dataset-seq->stream!
-    :reader ds-arrow/stream->dataset-seq}
+    :reader ds-arrow/stream->dataset-seq
+    :suffix ".arrow"}
    :arrows
    {:writer (fn [path ds-seq]
               (ds-arrow/dataset-seq->stream! path {:format :ipc} ds-seq))
     :reader (fn [path]
-              (ds-arrow/stream->dataset-seq path {:format :ipc}))}})
+              (ds-arrow/stream->dataset-seq path {:format :ipc}))
+    :suffix ".arrows"}
+   :csv {:writer nil
+         :reader ds-csv/csv->dataset-seq
+         :suffix ".csv"}})
 
+(defn extension
+  "Returns a filenames last file extension."
+  [filename]
+  (last (clojure.string/split filename #"\.")))
+
+(defn filename->format
+  [filename]
+  (-> filename
+      extension
+      keyword))
+
+(defn read-dataset-seq
+  [k-means-state key]
+  (let [filename (key k-means-state)
+        format (filename->format filename)
+        reader-fn (-> formats format :reader)]
+    (log/info "Loading" filename "with" format)
+    (reader-fn filename)))
+
+(defn write-dataset-seq
+  [k-means-state key dataset]
+  (let [filename (key k-means-state)
+        format (filename->format filename)
+        writer-fn! (-> formats format :writer)]
+    (log/info "Writing to" filename "with" format)
+    (writer-fn! filename dataset)))
 
 
 ;; Helper functions related to file handling. 
 (def csv-filename->arrow-filename #(clojure.string/replace % #"csv" "arrows"))
 (def arrow-filename->csv-filename #(clojure.string/replace % #"arrows?" "csv"))
 
-(defn read-dataset-seq
-  [k-means-state key]
-  (let [reader-fn (-> k-means-state
-                      :format
-                      formats
-                      :reader)
-        filename (key k-means-state)]
-    (log/info "Loading" filename "with" (:format k-means-state))
-    (reader-fn filename)))
 
-(defn write-dataset-seq
-  [k-means-state key dataset]
-  (let [writer-fn! (-> k-means-state :format formats :writer)
-        filename (key k-means-state)]
-    (log/info "Writing to" filename "with" (:format k-means-state))
-    (writer-fn! filename dataset)))
 
-(defn csv-seq-filename->arrow-stream
-  "Converts a csv file into an arrow stream.
+
+
+
+
+
+(defn csv-seq-filename->format-seq
+  "Converts a csv file into another file type and 
+   returns a k means object with an updated key name.
    
   CSV isn't a well optimized format for doing large computations.                                                        
   Computing the min and max of each column working with optimized 
   csv seqs can take two orders of magnitude longer than the same 
   operations performed against arrow streams."
-  [filename]
-  (let [arrow-filename (csv-filename->arrow-filename filename)]
-    (log/info "Recieved" filename "which is a csv file")
-    (log/info "Converting" filename "to" arrow-filename)
-    (ds-arrow/dataset-seq->stream!
-     arrow-filename
-     {:format :ipc}
-     (ds-csv/csv->dataset-seq filename {:header-row? false}))
-    (log/info "Conversion completed")))
+  [k-means-state key]
+  (let [desired-suffix (-> k-means-state
+                           :format
+                           formats
+                           :suffix)
+        input-filename (key k-means-state)
+        new-filename (clojure.string/replace input-filename #"(.*)\.(.*?)$" (str "$1" desired-suffix))
+        new-state (assoc k-means-state key new-filename)]
+    (log/info "Requested conversion of" input-filename "to" desired-suffix)
+    (when (not= input-filename new-filename)
+      (log/info "Converting" input-filename "to" new-filename)
+      (write-dataset-seq new-state key (ds-csv/csv->dataset-seq input-filename {:header-row? false}))
+      (log/info "Conversion completed"))
+    new-state))
 
-
-
+(comment
+  (def state (initialize-k-means-state "test.csv" 5))
+  (clojure.string/replace "test.test.test" #"(.*)\.(.*?)$" "$1.boohoo")
+  (csv-seq-filename->format-seq state :points))
 ;; k is the number of clusters. 
 ;; 
 ;; State is tracked indirectly via files so that we can run 
@@ -121,9 +158,7 @@
   (log/info "Generating initial centroids")
   (ds/->dataset (vec (repeatedly k #(random-centroid domain)))))
 
-(comment
-  (def state (initialize-k-means-state "test.arrows" 5))
-  (generate-k-initial-centroids state))
+
 
 
 
@@ -160,15 +195,15 @@
 ;; Initalize k-means state
 (defn initialize-k-means-state
   [points-file k]
-  (let [state (KMeansState.
-               k
-               points-file
-               (centroids-filename points-file)
-               (assignments-filename points-file)
-               (history-filename points-file)
-               nil
-               :arrows)]
-    (assoc state :domain (find-domain state))))
+  (log/info "Initializing k-means state")
+  (KMeansState.
+   k
+   points-file
+   (centroids-filename points-file)
+   (assignments-filename points-file)
+   (history-filename points-file)
+   nil
+   :arrows))
 
 
 ;; Read and realize centroids from a file.
@@ -274,14 +309,13 @@
 
 (defn k-means
   [points-file k]
-  (let [arrow-filename (csv-filename->arrow-filename points-file)]
-    (when (not (file? arrow-filename))
-      (csv-seq-filename->arrow-stream points-file))
-    (log/info "Running k-means with k of" (str k) "on file" arrow-filename)
-    (let [k-means-state (initialize-k-means-state arrow-filename k)]
-      (log/info "Starting optimization process for" k-means-state)
-      (while (should-continue-optimizing? k-means-state)
-        (log/info "Starting optimization iteration")
-        (generate-centroids k-means-state)
-        (generate-assignments k-means-state)
-        (update-history! k-means-state (calculate-objective k-means-state))))))
+  (let [k-means-state (as-> (initialize-k-means-state points-file k) state
+                        (csv-seq-filename->format-seq state :points)
+                        (csv-seq-filename->format-seq state :assignments)
+                        (assoc state :domain (find-domain state)))]
+    (log/info "Starting optimization process for" k-means-state)
+    (while (should-continue-optimizing? k-means-state)
+      (log/info "Starting optimization iteration")
+      (generate-centroids k-means-state)
+      (generate-assignments k-means-state)
+      (update-history! k-means-state (calculate-objective k-means-state)))))

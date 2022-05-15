@@ -102,27 +102,62 @@
 
 
 
-;; (def large-dataset-filename "test.large.csv")
-;; (defn large-testing-dataset
-;;   "A testing dataset with a large number of items, useful for 
-;;    verifying that the program doesn't fail to run when dataset 
-;;    sizes are large."
-;;   (repeatedly 10000000 (fn [] (repeatedly 3 #(rand-int 1000)))))
+(def large-dataset-filename "test.large.csv")
+(def large-dataset-k 3)
+
+(def large-test-dataset-cleanup-files
+  "Files to cleanup betweeen tests."
+  ["test.large.csv"
+   "test.large.arrows"
+   "centroids.test.large.csv"
+   "assignments.test.large.arrows"
+   "history.test.large.csv"])
+
+(defn large-testing-dataset
+  "A testing dataset with a large number of items, useful for 
+   verifying that the program doesn't fail to run when dataset 
+   sizes are large."
+  []
+  (repeatedly 10000000 (fn [] (repeatedly 3 #(rand-int 1000)))))
+
+(defn create-large-testing-dataset!
+  "Creates the large test dataset."
+  []
+  (write-dataset large-dataset-filename (large-testing-dataset)))
+
+;; We would like to be able to setup and destroy the 
+;; files between testing runs. Typing out all the setup 
+;; code each time would be tedious. So creating a macro 
+;; which handles the setup simplifies our work.
+(defmacro with-large-dataset
+  [& forms]
+  `(try
+     (create-large-testing-dataset!)
+     ~@forms
+     (finally
+       (cleanup-files! large-test-dataset-cleanup-files))))
+
+
+(deftest test-k-means-large-dataset-memory-bound
+  (with-large-dataset
+    (let [state (initialize-k-means-state large-dataset-filename large-dataset-k)]
+      (testing "Test that initial generation of centroids works on large files."
+        (generate-centroids state))
+      (testing "Test that initial generating assignments work on large files."
+        (generate-assignments state))
+      (testing "Testing that calculating objective works on large files."
+        (calculate-objective state))
+      (testing "Test that looping generation of centroids works on large files."
+        (generate-centroids state))
+      (testing "Testing that looping generation of assignments works on large files."
+        (generate-assignments state))
+      (testing "Testing that calculating objective works on large files."
+        (calculate-objective state)))))
 
 
 
-
-
-;; (deftest test-get-domain
-;;   (let [filename "test.csv"]
-;;     (write-dataset filename (large-testing-dataset))
-;;     (testing "Test that getting domain on a large file works."
-;;       (println (find-domain filename)))))
-
-
-;; (deftest test-generate-assignments
-;;   (let [filename "test.csv"]
-;;     (write-large-test-file filename 100000000)
-;;     (let [state (initialize-k-means-state "test.csv" 3)]
-;;       (testing "Test that generating assignments work on large files."
-;;         (generate-assignments state)))))
+(deftest test-conversion-of-csv-to-format
+  (with-small-dataset
+    (let [state (initialize-k-means-state small-dataset-filename small-k)]
+      (testing "Test that the conversion of csv to format works."
+        (csv-seq-filename->format-seq state :points)))))
