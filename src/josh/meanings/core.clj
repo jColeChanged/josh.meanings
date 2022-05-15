@@ -1,7 +1,7 @@
 (ns josh.meanings.core
   (:require
    [clojure.tools.cli :refer [parse-opts]]
-   [josh.meanings.kmeans :refer [k-means csv-filename->arrow-filename csv-seq-filename->arrow-stream file?]])
+   [josh.meanings.kmeans :refer [k-means file?]])
   (:gen-class))
 
 

@@ -102,7 +102,7 @@
     (log/info "Requested conversion of" input-filename "to" desired-suffix)
     (when (not= input-filename new-filename)
       (log/info "Converting" input-filename "to" new-filename)
-      (write-dataset-seq new-state key (ds-csv/csv->dataset-seq input-filename {:header-row? false}))
+      (write-dataset-seq new-state key (ds-csv/csv->dataset-seq input-filename {:header-row? true}))
       (log/info "Conversion completed"))
     new-state))
 
@@ -261,14 +261,17 @@
 (defn update-centroids
   [k-means-state]
   (log/info "Recalculating centroids based on assignments")
-  (ds/drop-columns
-   (ds-reduce/group-by-column-agg
-    "assignment"
-    (zipmap
-     ["column-0" "column-1" "column-2"]
-     (map ds-reduce/mean ["column-0" "column-1" "column-2"]))
-    (read-dataset-seq k-means-state :assignments))
-   ["assignment"]))
+  (let [column-names (-> (read-dataset-seq k-means-state :assignments)
+                         first
+                         ds/columns)]
+    (ds/drop-columns
+     (ds-reduce/group-by-column-agg
+      "assignment"
+      (zipmap
+       column-names
+       (map ds-reduce/mean column-names))
+      (read-dataset-seq k-means-state :assignments))
+     ["assignment"])))
 
 
 

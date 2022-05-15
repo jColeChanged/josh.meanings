@@ -38,7 +38,8 @@
   "A dataset with easily understood properties such that k means
    correctness is easy to verify."
   []
-  [[1 2 3]
+  [["wins" "losses" "draws"]
+   [1 2 3]
    [1 2 3]
    [1 2 3]
    [1 2 3]
@@ -118,7 +119,8 @@
    verifying that the program doesn't fail to run when dataset 
    sizes are large."
   []
-  (repeatedly 10000000 (fn [] (repeatedly 3 #(rand-int 1000)))))
+  (cons ["wins" "losses" "draws"] (repeatedly 10000000 (fn [] (repeatedly 3 #(rand-int 1000))))))
+
 
 (defn create-large-testing-dataset!
   "Creates the large test dataset."
