@@ -159,5 +159,28 @@
 (deftest test-conversion-of-csv-to-format
   (with-small-dataset
     (let [state (initialize-k-means-state small-dataset-filename small-k)]
-      (testing "Test that the conversion of csv to format works."
-        (csv-seq-filename->format-seq state :points)))))
+      (let [new-state (csv-seq-filename->format-seq state :points)
+            original-dataset (read-dataset-seq state :points)
+            new-dataset (read-dataset-seq new-state :points)]
+        (testing "Dataset seqs are returned."
+          (is (every? ds/dataset? original-dataset))
+          (is (every? ds/dataset? new-dataset)))
+        (testing "Have the same number of datasets"
+          (is (count original-dataset) (count new-dataset)))
+        (testing "Have the same total rows"
+          (is (reduce + (map count original-dataset))
+              (reduce + (map count new-dataset)))))))
+  (with-large-dataset
+    (let [state (initialize-k-means-state large-dataset-filename large-dataset-k)]
+      (let [new-state (csv-seq-filename->format-seq state :points)
+            original-dataset (read-dataset-seq state :points)
+            new-dataset (read-dataset-seq new-state :points)]
+        (testing "Dataset seqs are returned."
+          (is (every? ds/dataset? original-dataset))
+          (is (every? ds/dataset? new-dataset)))
+        (testing "Have the same number of datasets"
+          (is (count original-dataset) (count new-dataset)))
+        (testing "Have the same total rows"
+          (is (reduce + (map count original-dataset))
+              (reduce + (map count new-dataset))))))))
+
