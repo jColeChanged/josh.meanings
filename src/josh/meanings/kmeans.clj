@@ -196,14 +196,15 @@
 (defn initialize-k-means-state
   [points-file k]
   (log/info "Initializing k-means state")
-  (KMeansState.
-   k
-   points-file
-   (centroids-filename points-file)
-   (assignments-filename points-file)
-   (history-filename points-file)
-   nil
-   :arrows))
+  (let [state (KMeansState.
+               k
+               points-file
+               (centroids-filename points-file)
+               (assignments-filename points-file)
+               (history-filename points-file)
+               nil
+               :arrows)]
+    (assoc state :domain (find-domain state))))
 
 
 ;; Read and realize centroids from a file.
@@ -311,8 +312,7 @@
   [points-file k]
   (let [k-means-state (as-> (initialize-k-means-state points-file k) state
                         (csv-seq-filename->format-seq state :points)
-                        (csv-seq-filename->format-seq state :assignments)
-                        (assoc state :domain (find-domain state)))]
+                        (csv-seq-filename->format-seq state :assignments))]
     (log/info "Starting optimization process for" k-means-state)
     (while (should-continue-optimizing? k-means-state)
       (log/info "Starting optimization iteration")

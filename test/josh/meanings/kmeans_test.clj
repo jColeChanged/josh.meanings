@@ -90,7 +90,7 @@
 (deftest test-equal-inputs-have-equal-assignments
   (with-small-dataset
     (testing "That the program runs without throwing an exception."
-      (is (= nil (k-means small-dataset-filename 3)))
+      (is (= nil (k-means small-dataset-filename small-k)))
       (let [assignments ((ds/->dataset "assignments.test.small.arrows") "assignment")]
         (testing "[1 2 3] are all assigned the same value."
           (is (apply = (take 4 assignments))))
