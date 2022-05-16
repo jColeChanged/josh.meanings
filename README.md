@@ -8,16 +8,57 @@ you a means of finding means so that you might come to know
 meanings through the process of repeatedly calculating means.
 
 This is a program for computing `k-means` in Clojure. 
-It is built to handle workloads which involve files 
-which are larger than memory, but not so large that the computation 
-cannot be persisted to disk. I hope that you have a painless 
-experience working with larger than memory datasets by leveraging 
-this program.
+It is built to handle workloads which involve datasets 
+which are too large to fit in memory, but not so large that 
+the computation cannot be persisted to disk. I hope that you 
+have a painless experience working with larger than memory 
+datasets by leveraging this program.
 
-## Caveats 
+## Technical Details (God willing)
 
-Currently, only earth mover distance is supported as distance 
-function.
+- Uses `k-means||` initialization to improve Big O expectation. 
+
+- Uses `parquet` to optimize disk access.
+
+- Leverages Clojure's `transducers` to use all cores.
+
+- Uses __GPUs__ to optimize matrix math when available.
+  
+- Runs multiple times to prevent unlucky local mimina. 
+  
+- Emits improvements as events to enable reactive programming.
+
+- Tested on both massive datasets and toy datasets.
+
+- Supports choice of distance function, but defaults to EMD.
+
+## Caveats
+
+ - Only intended to handle 1D clustering.
+
+## Comparison
+
+I wrote this because most of the other k means implementations 
+I tried using failed me horribly. sklearn couldn't handle larger 
+than memory datasets. dask.ml claimed to be able to solve that 
+problem, but it fell over when given a large dataset because it 
+broke the problem into more discerete subtasks than could fit in 
+memory. A C++ program which promises to be a fast k-means implementation 
+that could handle larger than memory files worked great as long as 
+you gave it files that could fit in memory and while in theory I could 
+have converted it to use it stxll in practice I did do so, but gave 
+it up as the wrong approach. Anyone who actually tries working on 
+larger than memory datasets is likely aware that a niave k means 
+implementation isn't the right path. Most libraries on GitHub 
+don't implement a k means that has good theoretical properties, but 
+niave k means, which takes far longer in both theory and practice 
+than other initialization methods while also having the joyous 
+property of having no guarantee of performance such that the path 
+to getting a good k means is the same path as getting a good sort 
+with bogo sort: keep trying until you get lucky. There were some 
+k means implementations which did do a good job. Spark was lovely. 
+However, I wanted to use arbitrary distance functions and for some 
+strange reason Spark didn't want to let me do that.
 
 ## Usage
 
