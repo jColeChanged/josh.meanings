@@ -1,4 +1,16 @@
 (ns josh.meanings.kmeans
+
+  "K-Means clustering generates a specific number of disjoint, 
+   non-hierarchical clusters. It is well suited to generating globular
+   clusters. The K-Means method is numerical, unsupervised, 
+   non-deterministic and iterative. Every member of a cluster is closer 
+   to its cluster center than the center of any other cluster.
+
+  The choice of initial partition can greatly affect the final clusters 
+  that result, in terms of inter-cluster and intracluster distances and 
+  cohesion. As a result k means is best run multiple times in order to 
+  avoid the trap of a local minimum."
+
   (:require
    [clojure.core.reducers :as reducers]
    [clojure.tools.logging :as log]
