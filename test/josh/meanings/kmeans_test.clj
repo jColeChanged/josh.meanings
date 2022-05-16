@@ -33,7 +33,7 @@
 
 (def dataset-prefixes
   "A list of dataset prefixes."
-  ["centroids" "history" "assignments" ""])
+  ["centroids." "history." "assignments." ""])
 
 (def datset-suffixes
   "A list of dataset suffixes."
@@ -96,6 +96,7 @@
 (defmacro with-small-dataset
   [& forms]
   `(try
+     (cleanup-files! small-test-dataset-cleanup-files)
      (create-small-testing-dataset!)
      ~@forms
      (finally
@@ -106,7 +107,7 @@
   (with-small-dataset
     (testing "That the program runs without throwing an exception."
       (is (= nil (k-means small-dataset-filename small-k)))
-      (let [assignments ((ds/->dataset "assignments.test.small.arrows") "assignment")]
+      (let [assignments ((ds/->dataset "assignments.test.small.parquet") "assignment")]
         (testing "[1 2 3] are all assigned the same value."
           (is (apply = (take 4 assignments))))
         (testing "[4 5 6] are all assigned the same value."
@@ -150,6 +151,7 @@
 (defmacro with-large-dataset
   [& forms]
   `(try
+     (cleanup-files! large-test-dataset-cleanup-files)
      (create-large-testing-dataset!)
      ~@forms
      (finally

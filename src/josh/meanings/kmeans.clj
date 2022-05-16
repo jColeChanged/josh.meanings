@@ -75,16 +75,10 @@
     (log/info "Writing to" filename "with" format)
     (writer-fn! filename dataset)))
 
-
-;; Helper functions related to file handling. 
-(def csv-filename->arrow-filename #(clojure.string/replace % #"csv" "arrows"))
-(def arrow-filename->csv-filename #(clojure.string/replace % #"arrows?" "csv"))
-
-
-
-
-
-
+(defn change-extension
+  [filename format]
+  (let [desired-suffix (:suffix (formats format))]
+    (clojure.string/replace filename #"(.*)\.(.*?)$" (str "$1" desired-suffix))))
 
 
 (defn csv-seq-filename->format-seq
@@ -96,14 +90,11 @@
   csv seqs can take two orders of magnitude longer than the same 
   operations performed against arrow streams."
   [k-means-state key]
-  (let [desired-suffix (-> k-means-state
-                           :format
-                           formats
-                           :suffix)
+  (let [format (:format k-means-state)
         input-filename (key k-means-state)
-        new-filename (clojure.string/replace input-filename #"(.*)\.(.*?)$" (str "$1" desired-suffix))
+        new-filename (change-extension input-filename format)
         new-state (assoc k-means-state key new-filename)]
-    (log/info "Requested conversion of" input-filename "to" desired-suffix)
+    (log/info "Requested conversion of" input-filename "to" new-filename)
     (when (not= input-filename new-filename)
       (log/info "Converting" input-filename "to" new-filename)
       (write-dataset-seq new-state key (ds-csv/csv->dataset-seq input-filename {:header-row? true}))
@@ -114,6 +105,9 @@
   (def state (initialize-k-means-state "test.csv" 5))
   (clojure.string/replace "test.test.test" #"(.*)\.(.*?)$" "$1.boohoo")
   (csv-seq-filename->format-seq state :points))
+
+
+
 ;; k is the number of clusters. 
 ;; 
 ;; State is tracked indirectly via files so that we can run 
@@ -166,9 +160,9 @@
                    (map #(zipmap column-names %) (repeatedly k #(random-centroid domain)))))))
 
 
-(comment
-  (def state (initialize-k-means-state "test.csv" 5))
-  (generate-k-initial-centroids state))
+;;(comment
+;;  (def state (initialize-k-means-state "test.csv" 5))
+;;  (generate-k-initial-centroids state))
 
 
 
@@ -176,20 +170,11 @@
   [prefix]
   #(str prefix "." %))
 
-(def centroids-filename
-  (comp
-   arrow-filename->csv-filename
-   (generate-filename "centroids")))
+(def centroids-filename (generate-filename "centroids"))
 
-(def assignments-filename
-  (comp
-   csv-filename->arrow-filename
-   (generate-filename "assignments")))
+(def assignments-filename (generate-filename "assignments"))
 
-(def history-filename
-  (comp
-   arrow-filename->csv-filename
-   (generate-filename "history")))
+(def history-filename (generate-filename "history"))
 
 
 
@@ -206,15 +191,17 @@
 (defn initialize-k-means-state
   [points-file k]
   (log/info "Initializing k-means state")
-  (let [state (KMeansState.
+  (let [format :parquet
+        state (KMeansState.
                k
                points-file
-               (centroids-filename points-file)
-               (assignments-filename points-file)
-               (history-filename points-file)
+               (change-extension (centroids-filename points-file) :csv)
+               (change-extension (assignments-filename points-file) format)
+               (change-extension (history-filename points-file) :csv)
                nil
-               :arrows)]
-    (assoc state :domain (find-domain state))))
+               format)
+        new-state (csv-seq-filename->format-seq state :points)]
+    (assoc new-state :domain (find-domain new-state))))
 
 
 ;; Read and realize centroids from a file.
@@ -322,9 +309,7 @@
 
 (defn k-means
   [points-file k]
-  (let [k-means-state (as-> (initialize-k-means-state points-file k) state
-                        (csv-seq-filename->format-seq state :points)
-                        (csv-seq-filename->format-seq state :assignments))]
+  (let [k-means-state (as-> (initialize-k-means-state points-file k) state)]
     (log/info "Starting optimization process for" k-means-state)
     (while (should-continue-optimizing? k-means-state)
       (log/info "Starting optimization iteration")
