@@ -63,6 +63,10 @@
     (log/info "Loading" filename "with" format)
     (reader-fn filename)))
 
+(defn dataset-seq->column-names
+  [ds-seq]
+  (ds/column-names (first ds-seq)))
+
 (defn write-dataset-seq
   [k-means-state key dataset]
   (let [filename (key k-means-state)
@@ -148,17 +152,23 @@
   (+ (* (rand) (- max min)) min))
 
 (defn random-centroid [domain]
-  (zipmap
-   (map (partial str "column-") (range))
-   (map random-between
-        (map vector (first domain) (second domain)))))
+  (map random-between
+       (map vector (first domain) (second domain))))
 
 (defn generate-k-initial-centroids
-  [{:keys [domain k]}]
-  (log/info "Generating initial centroids")
-  (ds/->dataset (vec (repeatedly k #(random-centroid domain)))))
+  [k-means-state]
+  (let [k (:k k-means-state)
+        domain (:domain k-means-state)
+        column-names (dataset-seq->column-names
+                      (read-dataset-seq k-means-state :points))]
+    (log/info "Generating initial centroids")
+    (ds/->dataset (vec
+                   (map #(zipmap column-names %) (repeatedly k #(random-centroid domain)))))))
 
 
+(comment
+  (def state (initialize-k-means-state "test.csv" 5))
+  (generate-k-initial-centroids state))
 
 
 
@@ -226,7 +236,7 @@
   [k-means-state]
   (log/info "Generating assignments")
   (let [datasets (read-dataset-seq k-means-state :points)
-        columns (ds/column-names (first datasets))
+        columns (dataset-seq->column-names datasets)
         to-vec (fn [row] (map #(get row %) columns))
         assign (comp
                 (partial hash-map :assignment)
@@ -261,9 +271,8 @@
 (defn update-centroids
   [k-means-state]
   (log/info "Recalculating centroids based on assignments")
-  (let [column-names (-> (read-dataset-seq k-means-state :assignments)
-                         first
-                         ds/columns)]
+  (let [column-names (dataset-seq->column-names
+                      (read-dataset-seq k-means-state :assignments))]
     (ds/drop-columns
      (ds-reduce/group-by-column-agg
       "assignment"
