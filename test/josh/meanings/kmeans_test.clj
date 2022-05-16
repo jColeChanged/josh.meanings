@@ -30,6 +30,24 @@
       (->> dataset
            (csv/write-csv writer)))))
 
+
+(def dataset-prefixes
+  "A list of dataset prefixes."
+  ["centroids" "history" "assignments" ""])
+
+(def datset-suffixes
+  "A list of dataset suffixes."
+  (map :suffix (vals formats)))
+
+(defn generate-possible-files
+  "Generates a list of possible files."
+  [original]
+  (let [base (clojure.string/replace-first original ".csv" "")]
+    (for [prefix dataset-prefixes
+          suffix datset-suffixes]
+      (str prefix base suffix))))
+
+
 (def small-dataset-filename "test.small.csv")
 
 (def small-k 3)
@@ -64,11 +82,7 @@
 ;; test runs.
 (def small-test-dataset-cleanup-files
   "Files to cleanup betweeen tests."
-  ["test.small.csv"
-   "test.small.arrows"
-   "centroids.test.small.csv"
-   "assignments.test.small.arrows"
-   "history.test.small.csv"])
+  (generate-possible-files small-dataset-filename))
 
 (defn cleanup-files!
   "Removes a collection of files from the disk."
@@ -106,13 +120,15 @@
 (def large-dataset-filename "test.large.csv")
 (def large-dataset-k 3)
 
+
+
+
+
+
 (def large-test-dataset-cleanup-files
   "Files to cleanup betweeen tests."
-  ["test.large.csv"
-   "test.large.arrows"
-   "centroids.test.large.csv"
-   "assignments.test.large.arrows"
-   "history.test.large.csv"])
+  (generate-possible-files large-dataset-filename))
+
 
 (defn large-testing-dataset
   "A testing dataset with a large number of items, useful for 
