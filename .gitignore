@@ -19,3 +19,4 @@ pom.xml.asc
 *.arrow
 *.arrows
 *.log
+*.parquet
