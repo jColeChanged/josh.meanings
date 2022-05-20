@@ -284,47 +284,128 @@
 
 
 
-(defn update-history!
-  "Adds the latest objective metric to the history file."
-  [k-means-state optimization-metric]
-  (log/info "Latest objective metric is" optimization-metric)
-  (spit (:history k-means-state) (apply str optimization-metric "\n") :append true))
 
-(defn history
-  "Return the objective metric history for the given k-means state in chronological order."
-  [k-means-state]
-  (try
-    (ds/rowvecs (ds-csv/csv->dataset (:history k-means-state) {:header-row? false}))
-    (catch java.io.FileNotFoundException e  [])))
-
-(defn should-continue-optimizing?
-  "Check whether the optimization process has stopped improving."
-  [k-means-state]
-  (log/info "Checking whether to continue optimizing")
-  (let [history (history k-means-state)]
-    (and
-     ;; Continue optimization if the history is not long enough
-     ;; or if the history is not improving.
-     (< (count history) 100)
-     (or (< (count history) 3)
-         (apply not= (take-last 3 history))))))
 
 
 (defn generate-centroids
   [k-means-state]
-  (let [filename (:centroids k-means-state)]
-    (ds/write!
-     (if (file? filename)
-       (update-centroids k-means-state)
-       (generate-k-initial-centroids k-means-state))
-     filename)))
+  (let [filename (:centroids k-means-state)
+        centroids (if (file? filename)
+                    (update-centroids k-means-state)
+                    (generate-k-initial-centroids k-means-state))]
+    (ds/write! centroids filename)
+    centroids))
+
+(defn stabilized?
+  "K-means is said to be stabilized when performing an
+   iterative refinement (often called a lloyd iteration), 
+   does not result in any shifting of points between 
+   clusters. A stabilized k-means calculation can be 
+   stopped, because further refinement won't produce 
+   any changes."
+  ;; If the two latest centroids distributions are equal 
+  ;; then we don't need to generate assignments to know 
+  ;; that assignments haven't changed. If they had changed 
+  ;; then the center of the centroids would have changed.
+  ;; 
+  ;; We could keep track of whether assignments were changed 
+  ;; during the generation of assignments step, but if we did 
+  ;; the cost of doing so would be roughly O(rc) calculations 
+  ;; where r is the number of rows and c is the number of columns. 
+  ;; 
+  ;; Checking here is better than that, because we only need to 
+  ;; check O(kc) where k is the number of clusters and c is the 
+  ;; number of columns.
+  ;;
+  ;; It is worth noting that this conception of assignment changes 
+  ;; could have some practical benefits. Any differences we observe 
+  ;; tell us that there is still room for another round of iterative 
+  ;; refinement, but they also give us an idea of where in the space 
+  ;; the iterative refinement might need to take place.
+  ;; 
+  ;; Consider the 1D case where the clusters are at [0, 10, 15, 30, 50]. 
+  ;; We can know if the item at 15 moves to 14 and the item at 10 moves 
+  ;; to do iterative refinements on elements that are in [0, 10, 15, 30]
+  ;; because everything at 50 must be closer to 30 than they are to 15. 
+  ;; With five clusters we reduced the number of nodes that we need to 
+  ;; refine by 1 cluster worth of nodes, but the more k you have the more 
+  ;; potential there is to avoid having to do refinement. 
+  ;;
+  ;; This is true in two senses. In one sense you have less nodes to 
+  ;; do refinement on because there are less nodes that need to be 
+  ;; considered for refinement. In another sense there are less clusters 
+  ;; you have to consider as having the potential to be reassigned to, 
+  ;; because there are only so many clusters can you reassign too.
+  ;;
+  ;; Interestingly this means that as k increases, the cost savings of 
+  ;; this sort of selectivitiy about how we continue to refine also 
+  ;; increases. If k increases we should do this step because it saves 
+  ;; us time and if r increases we should do this step because k < r.
+  ;; 
+  ;; But the really profound thing for me is considering that these 
+  ;; equality check isn't actually a boolean. It is a special case of 
+  ;; the selection criteria - we should stop, because if nothing changed, 
+  ;; the clever selection criteria suggests that there is nothing left 
+  ;; for us to do.
+  ;; 
+  ;; Right now as I write this, this is just an equality check. But in 
+  ;; the future if I get around to fully optimizing this, this won't be 
+  ;; an equality check. Instead it will be returning selection criteria.
+  [centroids-1 centroids-2]
+  (= centroids-1 centroids-2))
+
 
 (defn k-means
   [points-file k]
-  (let [k-means-state (as-> (initialize-k-means-state points-file k) state)]
+  (let [k-means-state (initialize-k-means-state points-file k)]
     (log/info "Starting optimization process for" k-means-state)
-    (while (should-continue-optimizing? k-means-state)
-      (log/info "Starting optimization iteration")
-      (generate-centroids k-means-state)
+    (loop [centroids (generate-centroids k-means-state)
+           centroids-history []]
+      (println centroids)
       (generate-assignments k-means-state)
-      (update-history! k-means-state (calculate-objective k-means-state)))))
+      (let [new-centroids (generate-centroids k-means-state)]
+        (if (stabilized? new-centroids centroids)
+          new-centroids
+          (recur new-centroids (conj centroids-history centroids)))))
+    (println "Stabilized")))
+    
+
+
+;; (defn D
+;;   "Denotes the shortest distance from a data point to the 
+;;    closest center we have chosen."
+;;   [x]
+;;   nil)
+
+
+;; (def k-means-initialization generate-k-initial-centroids)
+
+;; (def k-means-++-initialization
+;;   [k-means-state]
+;;   (let [centers (uniform random choice from dataset)])) 
+;;     (let [distances (map D points)
+;;           total (sum distances)
+;;           sample (choose 1 based on distance over total)]
+;;    ;; do this k times
+
+
+(defn uniform-sample
+  [ds-seq n]
+  (eduction
+     (map (fn [dataset]
+            {:items (ds/sample dataset n)
+             :weight (ds/row-count dataset)}))
+    ds-seq))
+
+(comment 
+  (def state (initialize-k-means-state "test.csv" 5))
+  (uniform-sample
+   (read-dataset-seq state :points)
+   1))
+;; (def potential calculate-objective)
+;; (def ϕ potential)
+
+;; (defn monotonically-decreasing?
+;;   "Returns true if ds is monotonically decreasing."
+;;   [ds]
+;;   (apply < ds))
