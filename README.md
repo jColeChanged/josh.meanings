@@ -58,7 +58,20 @@ to getting a good k means is the same path as getting a good sort
 with bogo sort: keep trying until you get lucky. There were some 
 k means implementations which did do a good job. Spark was lovely. 
 However, I wanted to use arbitrary distance functions and for some 
-strange reason Spark didn't want to let me do that.
+strange reason Spark didn't want to let me do that. So here we are.
+A library built and ready for you to do actual k means computation 
+and I have no desire whatsoever to go through the shit show that was 
+trying to use all these other solutions. If you are less burnt out 
+then I am, please, submit a pull request that compares the performance 
+of this k means implementation with others. I'm interested in these 
+comparisons:
+
+1. First and most importantly, does it work when you give it files that 
+are larger than RAM.
+
+2. What is the wallclock time for getting good clusters.
+
+3. Which library finds the clusters which best minimize the objective.
 
 ## Usage
 

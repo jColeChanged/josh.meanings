@@ -21,7 +21,8 @@
                   :exclusions [org.slf4j/slf4j-log4j12]]
                  ;; We literally need this for 1 POJO formatting object.
                  [org.apache.hadoop/hadoop-mapreduce-client-core  "3.3.0"
-                  :exclusions [org.slf4j/slf4j-log4j12]]]
+                  :exclusions [org.slf4j/slf4j-log4j12]]
+                 [org.clojars.joshua/sampling "3.3"]]
   :main josh.meanings.core
   :jvm-opts ["-Xmx2g"]
   :repl-options {:init-ns josh.meanings.core})
