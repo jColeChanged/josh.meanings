@@ -15,16 +15,16 @@
 ;; This comes at a cost. We have to do a pass over the 
 ;; dataset. This pass is going to take roughly O(n*c) 
 ;; to perform the mapping step of the count and then 
-;; O(log(u) * s) where u is the number of splits and s is 
-;; the number of times of mapped data partitions. The 
-;; combined algorithm is therefore going to be something 
-;; like O(nc + log(u)s). Obviously we can know that in the 
-;; very worst case n = u. So that means it is
-;; O(nc + log(n)s). s is going to be a function of n. 
-;; Basically some very large constant divided by n. 
+;; O(log(s) * u) where u is the number of unique items and 
+;; s is the number of mapped partitions.
 ;; 
-;; So this step makes a lot of sense only if the data 
-;; has a decent fraction of non-unique entries.
+;; So this step makes a lot of sense if the data 
+;; has a decent fraction of non-unique entries but it is 
+;; a waste of time if it isn't.
+;;
+;; This introduces a risk for very large datasets that u
+;; is larger than the system memory. My current implementation 
+;; doesn't try to address that. A future version ought to.
 
 (defn ds-seq->frequencies
   [ds-seq]
