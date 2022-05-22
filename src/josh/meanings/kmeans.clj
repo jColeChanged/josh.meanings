@@ -19,6 +19,7 @@
    [tech.v3.libs.parquet :as ds-parquet]
    [tech.v3.dataset.reductions :as ds-reduce]
    [tech.v3.dataset :as ds]
+   [bigml.sampling.reservoir :as reservoir]
    [clojure.string])
   (:use
    [clojure.java.io :as io]
