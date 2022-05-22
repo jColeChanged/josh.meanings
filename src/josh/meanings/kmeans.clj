@@ -19,12 +19,11 @@
    [tech.v3.libs.parquet :as ds-parquet]
    [tech.v3.dataset.reductions :as ds-reduce]
    [tech.v3.dataset :as ds]
-   [bigml.sampling.reservoir :as reservoir]
+   [bigml.sampling.reservoir :as res-sample]
    [clojure.string])
   (:use
    [clojure.java.io :as io]
    [tech.v3.dataset.math :as ds-math]
-
    [fastmath.vector :as math])
   (:gen-class))
 
@@ -392,14 +391,17 @@
 
 (defn uniform-sample
   [ds-seq n]
-  (eduction
-     (map (fn [dataset]
-            {:items (ds/sample dataset n)
-             :weight (ds/row-count dataset)}))
-    ds-seq))
+  (apply res-sample/merge 
+         (map #(res-sample/sample (ds/rowvecs %) n) ds-seq)))
+   
 
+   
 (comment 
   (def state (initialize-k-means-state "test.csv" 5))
+  ;;(apply res-sample/merge
+  ;;  [(res-sample/sample (ds/rowvecs (first (read-dataset-seq state :points))) 1)
+  ;;   (res-sample/sample (ds/rowvecs (first (read-dataset-seq state :points))) 1)])
+  
   (uniform-sample
    (read-dataset-seq state :points)
    1))
