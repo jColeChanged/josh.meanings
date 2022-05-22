@@ -371,28 +371,50 @@
     
 
 
-;; (defn D
-;;   "Denotes the shortest distance from a data point to the 
-;;    closest center we have chosen."
-;;   [x]
-;;   nil)
+(defn shortest-distance
+  "Denotes the shortest distance from a data point to the 
+  closest center we have chosen."
+  [point centroids]
+  (apply min (map #(distance-fn point %) centroids)))
 
-
-;; (def k-means-initialization generate-k-initial-centroids)
-
-;; (def k-means-++-initialization
-;;   [k-means-state]
-;;   (let [centers (uniform random choice from dataset)])) 
-;;     (let [distances (map D points)
-;;           total (sum distances)
-;;           sample (choose 1 based on distance over total)]
-;;    ;; do this k times
+(defn k-means-++-weight
+  [centroids]
+  (fn [point]
+    (Math/pow
+     (shortest-distance point centroids)
+     2)))
 
 
 (defn uniform-sample
   [ds-seq n]
-  (apply res-sample/merge 
+  (apply res-sample/merge
          (map #(res-sample/sample (ds/rowvecs %) n) ds-seq)))
+
+(defn weighted-sample
+  [ds-seq weight-fn n]
+  (apply res-sample/merge
+         (map 
+          #(res-sample/sample 
+            (ds/rowvecs %) n 
+            :weigh weight-fn) 
+          ds-seq)))
+
+;; (def k-means-initialization generate-k-initial-centroids)
+
+(defn k-means-++-initialization
+  [k-means-state]
+  (let [ds-seq (read-dataset-seq k-means-state :points)
+        k (:k k-means-state)]
+    (loop [centers (uniform-sample ds-seq 1)]
+      (if (= k (count centers))
+        centers
+        (recur (concat centers 
+                       (weighted-sample ds-seq 
+                                        (k-means-++-weight centers) 
+                                        1)))))))
+
+
+
    
 
    
@@ -401,7 +423,7 @@
   ;;(apply res-sample/merge
   ;;  [(res-sample/sample (ds/rowvecs (first (read-dataset-seq state :points))) 1)
   ;;   (res-sample/sample (ds/rowvecs (first (read-dataset-seq state :points))) 1)])
-  
+  (k-means-++-initialization state)
   (uniform-sample
    (read-dataset-seq state :points)
    1))
