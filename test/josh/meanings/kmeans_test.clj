@@ -162,17 +162,15 @@
   (with-large-dataset
     (let [state (initialize-k-means-state large-dataset-filename large-dataset-k)]
       (testing "Test that initial generation of centroids works on large files."
-        (generate-centroids state))
+        (initialize-centroids state))
       (testing "Test that initial generating assignments work on large files."
-        (generate-assignments state))
+        (assign-clusters state))
       (testing "Testing that calculating objective works on large files."
         (calculate-objective state))
       (testing "Test that looping generation of centroids works on large files."
-        (generate-centroids state))
+        (recalculate-means state))
       (testing "Testing that looping generation of assignments works on large files."
-        (generate-assignments state))
-      (testing "Testing that calculating objective works on large files."
-        (calculate-objective state)))))
+        (assign-clusters state)))))
 
 
 

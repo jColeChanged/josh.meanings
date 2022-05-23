@@ -92,7 +92,6 @@
   (let [desired-suffix (:suffix (formats format))]
     (clojure.string/replace filename #"(.*)\.(.*?)$" (str "$1" desired-suffix))))
 
-
 (defn csv-seq-filename->format-seq
   "Converts a csv file into another file type and 
    returns a k means object with an updated key name.
@@ -113,10 +112,6 @@
       (log/info "Conversion completed"))
     new-state))
 
-(comment
-  (def state (initialize-k-means-state "test.csv" 5))
-  (clojure.string/replace "test.test.test" #"(.*)\.(.*?)$" "$1.boohoo")
-  (csv-seq-filename->format-seq state :points))
 
 
 
@@ -125,16 +120,99 @@
 ;; State is tracked indirectly via files so that we can run 
 ;; on datasets that are too large to fit in memory. Points, centroids, 
 ;; assignments, and history are all this type of file references. 
-;; 
-;; Domain is a vector of mins and a vector maxes for each column.
 (defrecord KMeansState
            [k
             points
             centroids
             assignments
             history
-            domain
-            format])
+            format
+            init
+            distance-fn])
+
+
+
+(defn generate-filename
+  [prefix]
+  #(str prefix "." %))
+
+(def centroids-filename (generate-filename "centroids"))
+
+(def assignments-filename (generate-filename "assignments"))
+
+(def history-filename (generate-filename "history"))
+
+
+
+(defn file?
+  "Returns true if a file exists and false otherwise."
+  [filename]
+  (.exists (clojure.java.io/file filename)))
+
+
+
+
+
+(defn initialize-k-means-state
+  "Sets initial configuration options for the k means calculation."
+  [points-file k]
+  (log/info "Initializing k-means state")
+  (let [format :parquet
+        init :random
+        distance-fn math/dist-emd
+        state (KMeansState.
+               k
+               points-file
+               (change-extension (centroids-filename points-file) :csv)
+               (change-extension (assignments-filename points-file) format)
+               (change-extension (history-filename points-file) :csv)
+               format
+               init
+               distance-fn)]
+    (csv-seq-filename->format-seq state :points)))
+
+
+;; Read and realize centroids from a file.
+(defn read-centroids-from-file
+  [k-means-state]
+  (ds/rowvecs
+   (ds/->dataset
+    (:centroids k-means-state) {:file-type :csv :header-row? true})))
+
+
+
+(defn shortest-distance-*
+  "Denotes the shortest distance from a data point to a 
+   center. Which distance to use is decided by the k means 
+   configuration."
+  [^KMeansState configuration]
+  (let [distance-fn (:distance-fn configuration)]
+    (fn [point centroids]
+      (apply min (map #(distance-fn point %) centroids)))))
+
+(defn k-means-++-weight
+  [configuration centroids]
+  (let [shortest-distance (shortest-distance-* configuration)]
+    (fn [point]
+      (Math/pow
+       (shortest-distance point centroids)
+       2))))
+
+
+(defn uniform-sample
+  [ds-seq n]
+  (apply res-sample/merge
+         (map #(res-sample/sample (ds/rowvecs %) n) ds-seq)))
+
+(defn weighted-sample
+  [ds-seq weight-fn n]
+  (apply res-sample/merge
+         (map
+          #(res-sample/sample
+            (ds/rowvecs %) n
+            :weigh weight-fn)
+          ds-seq)))
+
 
 
 (defn find-domain [k-means-state]
@@ -161,10 +239,10 @@
   (map random-between
        (map vector (first domain) (second domain))))
 
-(defn generate-k-initial-centroids
+(defn k-means-random-initialization
   [k-means-state]
   (let [k (:k k-means-state)
-        domain (:domain k-means-state)
+        domain (find-domain k-means-state)
         column-names (dataset-seq->column-names
                       (read-dataset-seq k-means-state :points))]
     (log/info "Generating initial centroids")
@@ -172,66 +250,39 @@
                    (map #(zipmap column-names %) (repeatedly k #(random-centroid domain)))))))
 
 
-;;(comment
-;;  (def state (initialize-k-means-state "test.csv" 5))
-;;  (generate-k-initial-centroids state))
-
-
-
-(defn generate-filename
-  [prefix]
-  #(str prefix "." %))
-
-(def centroids-filename (generate-filename "centroids"))
-
-(def assignments-filename (generate-filename "assignments"))
-
-(def history-filename (generate-filename "history"))
-
-
-
-(defn file?
-  "Returns true if a file exists and false otherwise."
-  [filename]
-  (.exists (clojure.java.io/file filename)))
-
-
-
-
-
-;; Initalize k-means state
-(defn initialize-k-means-state
-  [points-file k]
-  (log/info "Initializing k-means state")
-  (let [format :parquet
-        state (KMeansState.
-               k
-               points-file
-               (change-extension (centroids-filename points-file) :csv)
-               (change-extension (assignments-filename points-file) format)
-               (change-extension (history-filename points-file) :csv)
-               nil
-               format)
-        new-state (csv-seq-filename->format-seq state :points)]
-    (assoc new-state :domain (find-domain new-state))))
-
-
-;; Read and realize centroids from a file.
-(defn read-centroids-from-file
+(defn k-means-classical-initialization
   [k-means-state]
-  (ds/rowvecs
-   (ds/->dataset
-    (:centroids k-means-state) {:file-type :csv :header-row? true})))
+  (uniform-sample (read-dataset-seq k-means-state :points) (:k k-means-state)))
 
-;; Compute earth mover distance as distance metric for clustering.
-(def distance-fn math/dist-emd)
+(defn k-means-++-initialization
+  [k-means-state]
+  (let [ds-seq (read-dataset-seq k-means-state :points)
+        k (:k k-means-state)]
+    (loop [centers (uniform-sample ds-seq 1)]
+      (if (= k (count centers))
+        centers
+        (recur (concat centers
+                       (weighted-sample ds-seq
+                                        (k-means-++-weight centers)
+                                        1)))))))
+
+
+(def initialization-schemes
+  "Supported initialization methods for generating intial centroids."
+  {:classical k-means-classical-initialization
+   :random k-means-random-initialization
+   :kmeans-++ k-means-++-initialization
+   :kmeans-parallel nil})
+
 
 (defn find-closest-centroid
-  [centroids point]
-  (let [distances (map (partial distance-fn point) centroids)]
-    (first (apply min-key second (map-indexed vector distances)))))
+  [^KMeansState configuration]
+  (let [distance-fn (:distance-fn configuration)]
+    (fn [centroids point]
+      (let [distances (map (partial distance-fn point) centroids)]
+        (first (apply min-key second (map-indexed vector distances)))))))
 
-(defn generate-assignments
+(defn assign-clusters
   [k-means-state]
   (log/info "Generating assignments")
   (let [datasets (read-dataset-seq k-means-state :points)
@@ -240,7 +291,7 @@
         assign (comp
                 (partial hash-map :assignment)
                 (partial
-                 find-closest-centroid
+                 (find-closest-centroid k-means-state)
                  (read-centroids-from-file k-means-state))
                 to-vec)
         map-assignment (fn [dataset] (ds/row-map dataset assign))]
@@ -257,7 +308,7 @@
                                  (map (partial map assign->centroid)))]
     (reduce + 0
             (map (partial reduce + 0)
-                 (map (partial map distance-fn)
+                 (map (partial map (:distance-fn k-means-state))
                       (eduction
                        assigns->centroids
                        (read-dataset-seq k-means-state :assignments))
@@ -287,13 +338,10 @@
 
 
 
-(defn generate-centroids
+(defn recalculate-means
   [k-means-state]
-  (let [filename (:centroids k-means-state)
-        centroids (if (file? filename)
-                    (update-centroids k-means-state)
-                    (generate-k-initial-centroids k-means-state))]
-    (ds/write! centroids filename)
+  (let [centroids (update-centroids k-means-state)]
+    (ds/write! centroids (:centroids k-means-state))
     centroids))
 
 (defn stabilized?
@@ -355,82 +403,30 @@
   (= centroids-1 centroids-2))
 
 
+(defn initialize-centroids 
+  "Initializes centroids according to the provided centroid
+   initialization configuration."
+  [^KMeansState configuration]
+  (let [init-selection (:init configuration)
+        init-method (initialization-schemes init-selection)]
+    (when (nil? init-method)
+      (throw (str "No initialization scheme found for " init-method)))
+    (log/info "Initializing centroids with" init-selection "initialization scheme.")
+    (let [centroids (init-method configuration)]
+      (ds/write! centroids (:centroids configuration))
+      centroids)))
+
+
+
 (defn k-means
   [points-file k]
   (let [k-means-state (initialize-k-means-state points-file k)]
     (log/info "Starting optimization process for" k-means-state)
-    (loop [centroids (generate-centroids k-means-state)
+    (loop [centroids (initialize-centroids k-means-state)
            centroids-history []]
-      (println centroids)
-      (generate-assignments k-means-state)
-      (let [new-centroids (generate-centroids k-means-state)]
+      (assign-clusters k-means-state)
+      (let [new-centroids (recalculate-means k-means-state)]
         (if (stabilized? new-centroids centroids)
           new-centroids
           (recur new-centroids (conj centroids-history centroids)))))
     (println "Stabilized")))
-    
-
-
-(defn shortest-distance
-  "Denotes the shortest distance from a data point to the 
-  closest center we have chosen."
-  [point centroids]
-  (apply min (map #(distance-fn point %) centroids)))
-
-(defn k-means-++-weight
-  [centroids]
-  (fn [point]
-    (Math/pow
-     (shortest-distance point centroids)
-     2)))
-
-
-(defn uniform-sample
-  [ds-seq n]
-  (apply res-sample/merge
-         (map #(res-sample/sample (ds/rowvecs %) n) ds-seq)))
-
-(defn weighted-sample
-  [ds-seq weight-fn n]
-  (apply res-sample/merge
-         (map 
-          #(res-sample/sample 
-            (ds/rowvecs %) n 
-            :weigh weight-fn) 
-          ds-seq)))
-
-;; (def k-means-initialization generate-k-initial-centroids)
-
-(defn k-means-++-initialization
-  [k-means-state]
-  (let [ds-seq (read-dataset-seq k-means-state :points)
-        k (:k k-means-state)]
-    (loop [centers (uniform-sample ds-seq 1)]
-      (if (= k (count centers))
-        centers
-        (recur (concat centers 
-                       (weighted-sample ds-seq 
-                                        (k-means-++-weight centers) 
-                                        1)))))))
-
-
-
-   
-
-   
-(comment 
-  (def state (initialize-k-means-state "test.csv" 5))
-  ;;(apply res-sample/merge
-  ;;  [(res-sample/sample (ds/rowvecs (first (read-dataset-seq state :points))) 1)
-  ;;   (res-sample/sample (ds/rowvecs (first (read-dataset-seq state :points))) 1)])
-  (k-means-++-initialization state)
-  (uniform-sample
-   (read-dataset-seq state :points)
-   1))
-;; (def potential calculate-objective)
-;; (def ϕ potential)
-
-;; (defn monotonically-decreasing?
-;;   "Returns true if ds is monotonically decreasing."
-;;   [ds]
-;;   (apply < ds))
