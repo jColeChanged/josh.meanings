@@ -263,7 +263,7 @@
         centers
         (recur (concat centers
                        (weighted-sample ds-seq
-                                        (k-means-++-weight centers)
+                                        (k-means-++-weight k-means-state centers)
                                         1)))))))
 
 
@@ -403,7 +403,7 @@
   (= centroids-1 centroids-2))
 
 
-(defn initialize-centroids 
+(defn initialize-centroids
   "Initializes centroids according to the provided centroid
    initialization configuration."
   [^KMeansState configuration]
