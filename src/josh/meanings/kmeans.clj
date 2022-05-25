@@ -14,107 +14,18 @@
   (:require
    [clojure.core.reducers :as reducers]
    [clojure.tools.logging :as log]
-   [tech.v3.libs.arrow :as ds-arrow]
-   [tech.v3.dataset.io.csv :as ds-csv]
-   [tech.v3.libs.parquet :as ds-parquet]
    [tech.v3.dataset.reductions :as ds-reduce]
    [tech.v3.dataset :as ds]
    [bigml.sampling.reservoir :as res-sample]
    [clojure.string])
   (:use
+   [josh.meanings.persistence :as persist]
    [clojure.java.io :as io]
    [tech.v3.dataset.math :as ds-math]
    [fastmath.vector :as math])
-  (:import [java.io File])
   (:gen-class))
 
 (set! *warn-on-reflection* true)
-
-
-;; CSV was extremely slow. Arrow failed to load really large files.
-;; Arrows failed to write extremely small files. So I wanted to try 
-;; parquet but didn't want to continually have to rewrite parsing 
-;; logic as I moved between different file formats. Therefore, I made the 
-;; format used a configuration option rather than a hardcoded function 
-;; call. If and when parquet fails, I'll have an escape hatch to quickly 
-;; try a different file format.
-(def formats
-  {:parquet
-   {:writer ds-parquet/ds-seq->parquet
-    :reader ds-parquet/parquet->ds-seq
-    :suffix ".parquet"}
-   :arrow
-   {:writer ds-arrow/dataset-seq->stream!
-    :reader ds-arrow/stream->dataset-seq
-    :suffix ".arrow"}
-   :arrows
-   {:writer (fn [path ds-seq]
-              (ds-arrow/dataset-seq->stream! path {:format :ipc} ds-seq))
-    :reader (fn [path]
-              (ds-arrow/stream->dataset-seq path {:format :ipc}))
-    :suffix ".arrows"}
-   :csv {:writer nil
-         :reader ds-csv/csv->dataset-seq
-         :suffix ".csv"}})
-
-(defn extension
-  "Returns a filenames last file extension."
-  [filename]
-  (last (clojure.string/split filename #"\.")))
-
-(defn filename->format
-  [filename]
-  (-> filename
-      extension
-      keyword))
-
-(defn read-dataset-seq
-  [k-means-state key]
-  (let [filename (key k-means-state)
-        format (filename->format filename)
-        reader-fn (-> formats format :reader)]
-    (log/info "Loading" filename "with" format)
-    (reader-fn filename)))
-
-(defn dataset-seq->column-names
-  [ds-seq]
-  (ds/column-names (first ds-seq)))
-
-(defn write-dataset-seq
-  [k-means-state key dataset]
-  (let [filename (key k-means-state)
-        format (filename->format filename)
-        writer-fn! (-> formats format :writer)]
-    (log/info "Writing to" filename "with" format)
-    (writer-fn! filename dataset)))
-
-(defn change-extension
-  [filename format]
-  (let [desired-suffix (:suffix (formats format))]
-    (clojure.string/replace filename #"(.*)\.(.*?)$" (str "$1" desired-suffix))))
-
-(defn csv-seq-filename->format-seq
-  "Converts a csv file into another file type and 
-   returns a k means object with an updated key name.
-   
-  CSV isn't a well optimized format for doing large computations.                                                        
-  Computing the min and max of each column working with optimized 
-  csv seqs can take two orders of magnitude longer than the same 
-  operations performed against arrow streams."
-  [k-means-state key]
-  (let [format (:format k-means-state)
-        input-filename (key k-means-state)
-        new-filename (change-extension input-filename format)
-        new-state (assoc k-means-state key new-filename)]
-    (log/info "Requested conversion of" input-filename "to" new-filename)
-    (when (not= input-filename new-filename)
-      (log/info "Converting" input-filename "to" new-filename)
-      (write-dataset-seq new-state key (ds-csv/csv->dataset-seq input-filename {:header-row? true}))
-      (log/info "Conversion completed"))
-    new-state))
-
-
-
 
 ;; k is the number of clusters. 
 ;; 
@@ -130,25 +41,6 @@
             format
             init
             distance-fn])
-
-
-
-(defn generate-filename
-  [prefix]
-  #(str prefix "." %))
-
-(def centroids-filename (generate-filename "centroids"))
-
-(def assignments-filename (generate-filename "assignments"))
-
-(def history-filename (generate-filename "history"))
-
-
-
-(defn file?
-  "Returns true if a file exists and false otherwise."
-  [filename]
-  (.exists (clojure.java.io/file filename)))
 
 
 ;; k-means-||-initialization includes k-means-++-initialization 
@@ -178,30 +70,25 @@
   (let [format (or (:format options) *default-format*)
         init (or (:init options) *default-init*)
         distance-fn math/dist-emd]
-    (when (not (contains? formats format))
-      (throw (Exception. (str "Invalid format provided. Format must be one of " (keys formats)))))
+    (when (not (contains? persist/formats format))
+      (throw (Exception. (str "Invalid format provided. Format must be one of " (keys persist/formats)))))
     (when (not (contains? initialization-schemes init))
       (throw (Exception. (str "Invalid initialization scheme provided. Scheme must be of one of "
                               (keys initialization-schemes)))))
     (log/debug "Validated k mean options")
     (log/info "Generating k mean configuration")
-    (csv-seq-filename->format-seq (KMeansState.
-                                   k
-                                   points-file
-                                   (change-extension (centroids-filename points-file) :csv)
-                                   (change-extension (assignments-filename points-file) format)
-                                   (change-extension (history-filename points-file) :csv)
-                                   format
-                                   init
-                                   distance-fn) :points)))
+    (persist/csv-seq-filename->format-seq (KMeansState.
+                                           k
+                                           points-file
+                                           (persist/change-extension (persist/centroids-filename points-file) :csv)
+                                           (persist/change-extension (persist/assignments-filename points-file) format)
+                                           (persist/change-extension (persist/history-filename points-file) :csv)
+                                           format
+                                           init
+                                           distance-fn) :points)))
 
 
-;; Read and realize centroids from a file.
-(defn read-centroids-from-file
-  [k-means-state]
-  (ds/rowvecs
-   (ds/->dataset
-    (:centroids k-means-state) {:file-type :csv :header-row? true})))
+
 
 
 
@@ -238,8 +125,9 @@
           ds-seq)))
 
 
-
-(defn find-domain [k-means-state]
+(defn find-domain
+  "Calculates the min and max for each column in the points dataset."
+  [^KMeansState configuration]
   (log/info "Finding the domain")
   (reducers/fold
    (fn
@@ -253,13 +141,17 @@
      (map (juxt
            (partial map :min)
            (partial map :max))))
-    (read-dataset-seq k-means-state :points))))
+    (read-dataset-seq configuration :points))))
 
-;; Generate a random point within the domain
-(defn random-between [[min max]]
+
+(defn random-between
+  "Generate a random number between [[min max]]."
+  [[min max]]
   (+ (* (rand) (- max min)) min))
 
-(defn random-centroid [domain]
+(defn random-centroid
+  "Generate a random point within the domain."
+  [domain]
   (map random-between
        (map vector (first domain) (second domain))))
 
@@ -300,7 +192,6 @@
         k (:k k-means-state)
         rows->maps (partial ds-seq->rows->maps ds-seq)]
     (loop [centers (uniform-sample ds-seq 1)]
-      (println centers)
       (if (= k (count centers))
         (ds/->dataset (rows->maps centers))
         (recur (concat centers
@@ -330,7 +221,7 @@
                 (partial hash-map :assignment)
                 (partial
                  (find-closest-centroid k-means-state)
-                 (read-centroids-from-file k-means-state))
+                 (persist/read-centroids-from-file k-means-state))
                 to-vec)
         map-assignment (fn [dataset] (ds/row-map dataset assign))]
     (write-dataset-seq k-means-state :assignments (map map-assignment datasets))))
@@ -339,7 +230,7 @@
 (defn calculate-objective
   [k-means-state]
   (log/info "Calculating objective")
-  (let [centroids (read-centroids-from-file k-means-state)
+  (let [centroids (persist/read-centroids-from-file k-means-state)
         assign->centroid (partial nth centroids)
         assigns->centroids (comp (map ds/rows)
                                  (map (partial map #(% "assignment")))
@@ -359,27 +250,23 @@
 (defn update-centroids
   [k-means-state]
   (log/info "Recalculating centroids based on assignments")
-  (let [column-names (dataset-seq->column-names
-                      (read-dataset-seq k-means-state :assignments))]
+  (let [column-names (persist/dataset-seq->column-names
+                      (persist/read-dataset-seq k-means-state :assignments))]
     (ds/drop-columns
      (ds-reduce/group-by-column-agg
       "assignment"
       (zipmap
        column-names
        (map ds-reduce/mean column-names))
-      (read-dataset-seq k-means-state :assignments))
+      (persist/read-dataset-seq k-means-state :assignments))
      ["assignment"])))
-
-
-
-
-
 
 
 (defn recalculate-means
   [k-means-state]
   (let [centroids (update-centroids k-means-state)]
-    (ds/write! centroids (:centroids k-means-state))
+    (persist/write-dataset-seq k-means-state :centroids centroids)
+;;    (ds/write! centroids (:centroids k-means-state))
     centroids))
 
 (defn stabilized?
@@ -462,7 +349,8 @@
   [points-filepath k & options]
   (let [k-means-state (initialize-k-means-state points-filepath k options)
         initial-centroids (initialize-centroids k-means-state)]
-    (ds/write! initial-centroids (:centroids k-means-state))
+    (write-dataset-seq k-means-state :centroids initial-centroids)
+    ;; (ds/write! initial-centroids (:centroids k-means-state))
     (log/info "Starting optimization process for" k-means-state)
     (loop [centroids initial-centroids
            centroids-history []]
@@ -500,10 +388,6 @@
     (apply k-means filename k options)))
 
 
-
-
-
-
 (defmethod initialize-centroids
   :k-means-parallel
   [k-means-state]
@@ -523,8 +407,3 @@
                                (weighted-sample ds-seq
                                                 (k-means-++-weight k-means-state centers)
                                                 oversample-factor)))))))
-
-(comment
-  (def state (initialize-k-means-state "test.csv" 5 {}))
-  (def parallel-points (k-means-||-initialization state))
-  (k-means-||-initialization state))

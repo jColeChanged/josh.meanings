@@ -1,7 +1,8 @@
 (ns josh.meanings.core
   (:require
    [clojure.tools.cli :refer [parse-opts]]
-   [josh.meanings.kmeans :refer [k-means file?]])
+   [josh.meanings.kmeans :refer [k-means]]
+   [josh.meanings.persistence :refer [file?]])
   (:gen-class))
 
 
