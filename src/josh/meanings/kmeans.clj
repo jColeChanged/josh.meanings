@@ -153,23 +153,23 @@
 
 ;; k-means-||-initialization includes k-means-++-initialization 
 ;; as well as k-means itself as a special case. This introduces 
-;; a circular dependency. So we need to declare the initialization 
-;; schemes before we define them if we want to provide a dynamic 
-;; and validated choice of init scheme.
-(declare k-means-naive-initialization
-         k-means-random-initialization
-         k-means-++-initialization
-         k-means-||-initialization)
-
+;; a circular dependency. So we don't lay out initialization schemes 
+;; via a map. Instead we rely on defmulti provide dispatch. Neverthless 
+;; it is valuable to be able to know the supported dispatch keys as a 
+;; caller. So we track that here.
 (def initialization-schemes
-  "Supported initialization methods for generating intial centroids."
-  {:classical k-means-naive-initialization
-   :random k-means-random-initialization
-   :k-means-++ k-means-++-initialization
-   :k-means-parallel k-means-||-initialization})
+  "Supported initialization methods for generating initial centroids."
+  #{:classical :random :k-means-++ :k-means-parallel})
+
+(defmulti initialize-centroids
+  "Initializes centroids according to the initialization 
+   method specified in the configuration."
+  :init)
+
+
 
 (def *default-format* :parquet)
-(def *default-init*   :random)
+(def *default-init*   :k-means-++)
 
 (defn initialize-k-means-state
   "Sets initial configuration options for the k means calculation."
@@ -263,28 +263,46 @@
   (map random-between
        (map vector (first domain) (second domain))))
 
-(defn k-means-random-initialization
+
+(defn ds-seq->rows->maps
+  [ds-seq rows]
+  (let [column-names (dataset-seq->column-names ds-seq)]
+    (map #(zipmap column-names %) rows)))
+
+
+
+(defmethod initialize-centroids
+  :random
   [k-means-state]
+  (log/info "Performing random (naive) k means initialization")
   (let [k (:k k-means-state)
         domain (find-domain k-means-state)
-        column-names (dataset-seq->column-names
-                      (read-dataset-seq k-means-state :points))]
+        rows->maps (partial ds-seq->rows->maps
+                            (read-dataset-seq k-means-state :points))]
     (log/info "Generating initial centroids")
-    (ds/->dataset (vec
-                   (map #(zipmap column-names %) (repeatedly k #(random-centroid domain)))))))
+    (ds/->dataset (rows->maps (repeatedly k #(random-centroid domain))))))
 
 
-(defn k-means-naive-initialization
+(defmethod initialize-centroids
+  :classical
   [k-means-state]
-  (uniform-sample (read-dataset-seq k-means-state :points) (:k k-means-state)))
+  (log/info "Performing classical (naive) k means initialization")
+  (let [k (:k k-means-state)
+        rows->maps (partial ds-seq->rows->maps
+                            (read-dataset-seq k-means-state :points))]
+    (ds/->dataset (rows->maps (uniform-sample (read-dataset-seq k-means-state :points) k)))))
 
-(defn k-means-++-initialization
+(defmethod initialize-centroids
+  :k-means-++
   [k-means-state]
+  (log/info "Performing k means++ initialization")
   (let [ds-seq (read-dataset-seq k-means-state :points)
-        k (:k k-means-state)]
+        k (:k k-means-state)
+        rows->maps (partial ds-seq->rows->maps ds-seq)]
     (loop [centers (uniform-sample ds-seq 1)]
+      (println centers)
       (if (= k (count centers))
-        centers
+        (ds/->dataset (rows->maps centers))
         (recur (concat centers
                        (weighted-sample ds-seq
                                         (k-means-++-weight k-means-state centers)
@@ -423,18 +441,7 @@
   (= centroids-1 centroids-2))
 
 
-(defn initialize-centroids
-  "Initializes centroids according to the provided centroid
-   initialization configuration."
-  [^KMeansState configuration]
-  (let [init-selection (:init configuration)
-        init-method (initialization-schemes init-selection)]
-    (when (nil? init-method)
-      (throw (Exception. (str "No initialization scheme found for " init-method))))
-    (log/info "Initializing centroids with" init-selection "initialization scheme.")
-    (let [centroids (init-method configuration)]
-      (ds/write! centroids (:centroids configuration))
-      centroids)))
+
 
 
 ;; We never want to rely on things fitting in memory, but in practice 
@@ -453,9 +460,11 @@
 (defmethod k-means
   java.lang.String
   [points-filepath k & options]
-  (let [k-means-state (initialize-k-means-state points-filepath k options)]
+  (let [k-means-state (initialize-k-means-state points-filepath k options)
+        initial-centroids (initialize-centroids k-means-state)]
+    (ds/write! initial-centroids (:centroids k-means-state))
     (log/info "Starting optimization process for" k-means-state)
-    (loop [centroids (initialize-centroids k-means-state)
+    (loop [centroids initial-centroids
            centroids-history []]
       (assign-clusters k-means-state)
       (let [new-centroids (recalculate-means k-means-state)]
@@ -495,21 +504,21 @@
 
 
 
-(defn k-means-||-initialization
+(defmethod initialize-centroids
+  :k-means-parallel
   [k-means-state]
   (log/info "Performing k means parallel initialization")
   (let [ds-seq (read-dataset-seq k-means-state :points)
         k (:k k-means-state)
         oversample-factor (* 2 k)
         iterations 5
-        column-names (ds/column-names (first ds-seq))
-        rows->maps #(zipmap column-names %)]
+        rows->maps (partial ds-seq->rows->maps ds-seq)]
     (loop [i 0
            centers (uniform-sample ds-seq 1)]
       (if (= i iterations)
         (do
           (log/info "Finished oversampling. Reducing to k centroids")
-          (k-means (map rows->maps centers) k :init :k-means-++ :distance-fn (:distance-fn k-means-state)))
+          (k-means (rows->maps centers) k :init :k-means-++ :distance-fn (:distance-fn k-means-state)))
         (recur (inc i) (concat centers
                                (weighted-sample ds-seq
                                                 (k-means-++-weight k-means-state centers)
