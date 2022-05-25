@@ -263,8 +263,19 @@
         centers
         (recur (concat centers
                        (weighted-sample ds-seq
-                                        (k-means-++-weight centers)
+                                        (k-means-++-weight k-means-state centers)
                                         1)))))))
+
+(defn k-means-||-initialization
+  [k-means-state]
+  (let [ds-seq (read-dataset-seq k-means-state :points)
+        k (:k k-means-state)
+        oversample-factor (* 2 k)]
+    (loop [centers (uniform-sample ds-seq 1)]
+      (recur (concat centers
+                     (weighted-sample ds-seq
+                                      (k-means-++-weight k-means-state centers)
+                                      oversample-factor))))))
 
 
 (def initialization-schemes
