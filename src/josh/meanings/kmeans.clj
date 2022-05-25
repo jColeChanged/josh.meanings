@@ -25,6 +25,7 @@
    [clojure.java.io :as io]
    [tech.v3.dataset.math :as ds-math]
    [fastmath.vector :as math])
+  (:import [java.io File])
   (:gen-class))
 
 (set! *warn-on-reflection* true)
@@ -164,11 +165,11 @@
   "Supported initialization methods for generating intial centroids."
   {:classical k-means-naive-initialization
    :random k-means-random-initialization
-   :kmeans-++ k-means-++-initialization
-   :kmeans-parallel k-means-||-initialization})
+   :k-means-++ k-means-++-initialization
+   :k-means-parallel k-means-||-initialization})
 
 (def *default-format* :parquet)
-(def *default-init*   :k-means-parallel)
+(def *default-init*   :random)
 
 (defn initialize-k-means-state
   "Sets initial configuration options for the k means calculation."
@@ -178,10 +179,10 @@
         init (or (:init options) *default-init*)
         distance-fn math/dist-emd]
     (when (not (contains? formats format))
-      (throw (str "Invalid format provided. Format must be one of" (keys formats))))
+      (throw (Exception. (str "Invalid format provided. Format must be one of " (keys formats)))))
     (when (not (contains? initialization-schemes init))
-      (throw (str "Invalid initialization scheme provided. Scheme must be of one of"
-                  (keys initialization-schemes))))
+      (throw (Exception. (str "Invalid initialization scheme provided. Scheme must be of one of "
+                              (keys initialization-schemes)))))
     (log/debug "Validated k mean options")
     (log/info "Generating k mean configuration")
     (csv-seq-filename->format-seq (KMeansState.
@@ -289,16 +290,6 @@
                                         (k-means-++-weight k-means-state centers)
                                         1)))))))
 
-(defn k-means-||-initialization
-  [k-means-state]
-  (let [ds-seq (read-dataset-seq k-means-state :points)
-        k (:k k-means-state)
-        oversample-factor (* 2 k)]
-    (loop [centers (uniform-sample ds-seq 1)]
-      (recur (concat centers
-                     (weighted-sample ds-seq
-                                      (k-means-++-weight k-means-state centers)
-                                      oversample-factor))))))
 
 
 
@@ -439,19 +430,30 @@
   (let [init-selection (:init configuration)
         init-method (initialization-schemes init-selection)]
     (when (nil? init-method)
-      (throw (str "No initialization scheme found for " init-method)))
+      (throw (Exception. (str "No initialization scheme found for " init-method))))
     (log/info "Initializing centroids with" init-selection "initialization scheme.")
     (let [centroids (init-method configuration)]
       (ds/write! centroids (:centroids configuration))
       centroids)))
 
 
+;; We never want to rely on things fitting in memory, but in practice 
+;; forcing a narrow calling convention on anyone wishing to do a k-means 
+;; calculation makes the library harder to use.
+;; 
+;; To help get around that we are willing to allow anything that we can 
+;; transform into a dataset. We handle the transformation step via 
+;; multimethods which dispatch based on the datasets type.
+(defmulti k-means-six
+  (fn [dataset _ & _]
+    (class dataset)))
 
-
-(defn k-means
-  "Performs k-means clustering on a dataset."
-  [points-file k & options]
-  (let [k-means-state (initialize-k-means-state points-file k options)]
+;; In the ideal we don't have any work to do. We've already got a 
+;; reference to the file we were hoping for.
+(defmethod k-means-six
+  java.lang.String
+  [points-filepath k & options]
+  (let [k-means-state (initialize-k-means-state points-filepath k options)]
     (log/info "Starting optimization process for" k-means-state)
     (loop [centroids (initialize-centroids k-means-state)
            centroids-history []]
@@ -459,5 +461,58 @@
       (let [new-centroids (recalculate-means k-means-state)]
         (if (stabilized? new-centroids centroids)
           new-centroids
-          (recur new-centroids (conj centroids-history centroids)))))
-    (println "Stabilized")))
+          (recur new-centroids (conj centroids-history centroids)))))))
+
+;; If we don't get a reference to our file, we'll have to create it.
+;; We don't want to support things that are too large to fit in memory
+;; even still so we're accepting lazy seqs and not everything. 
+;; 
+;; Really we're fine with accepting anything that can be understood by 
+;; ds/->dataset. 
+(defmethod k-means-six
+  clojure.lang.LazySeq
+  [lazy-seq k & options]
+  ;; We try to get a unique filename and we try to avoid writing to a 
+  ;; format and we try to avoid the extra work of converting between 
+  ;; formats if we can help it.
+  (let [format (or (:format options) *default-format*)
+        suffix (:suffix (format formats))
+        ;; I didn't want to use a full path like you would get with a temp 
+        ;; file here, because doing so would break the namespacing of `centroids.`
+        ;; and `assignments.` 
+        ;; 
+        ;; The namespacing mechanism really ought to be better than this, but 
+        ;; I want to get things working before I try to make things clean. 
+        filename (str (java.util.UUID/randomUUID) suffix)]
+    (ds/write!
+     (ds/->dataset lazy-seq)
+     filename)
+    (println "Options are" options)
+    (apply k-means-six filename k options)))
+
+
+
+
+
+
+(defn k-means-||-initialization
+  [k-means-state]
+  (let [ds-seq (read-dataset-seq k-means-state :points)
+        k (:k k-means-state)
+        oversample-factor (* 2 k)
+        iterations 5
+        column-names (ds/column-names (first ds-seq))
+        rows->maps #(zipmap column-names %)]
+    (loop [i 0
+           centers (uniform-sample ds-seq 1)]
+      (if (= i iterations)
+        (k-means-six (map rows->maps centers) k :init :k-means-++ :distance-fn (:distance-fn k-means-state))
+        (recur (inc i) (concat centers
+                               (weighted-sample ds-seq
+                                                (k-means-++-weight k-means-state centers)
+                                                oversample-factor)))))))
+
+(comment
+  (def state (initialize-k-means-state "test.csv" 5 {}))
+  (def parallel-points (k-means-||-initialization state))
+  (k-means-||-initialization state))
