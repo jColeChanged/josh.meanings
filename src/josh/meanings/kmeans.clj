@@ -26,13 +26,13 @@
 
 (set! *warn-on-reflection* true)
 
-;; k is the number of clusters. 
-;; 
-;; State is tracked indirectly via files so that we can run 
-;; on datasets that are too large to fit in memory. Points, centroids, 
-;; assignments are all this type of file references. 
+
 (defrecord KMeansState
-           [k
+           [k  ;; Number of clusters
+
+            ;; State is tracked indirectly via files so that we can run 
+            ;; on datasets that are too large to fit in memory. Points, centroids, 
+            ;; assignments are all this type of file references. 
             points
             centroids
             assignments
