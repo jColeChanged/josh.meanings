@@ -12,7 +12,6 @@
   avoid the trap of a local minimum."
 
   (:require
-   [clojure.core.reducers :as reducers]
    [clojure.tools.logging :as log]
    [tech.v3.dataset.reductions :as ds-reduce]
    [tech.v3.dataset :as ds]
@@ -90,68 +89,49 @@
 
 
 
-(defn shortest-distance-*
-  "Denotes the shortest distance from a data point to a 
-   center. Which distance to use is decided by the k means 
-   configuration."
-  [^KMeansState configuration]
-  (let [distance-fn (:distance-fn configuration)]
-    (fn [point centroids]
-      (apply min (map #(distance-fn point %) centroids)))))
 
-(defn k-means-++-weight
-  [configuration centroids]
-  (let [shortest-distance (shortest-distance-* configuration)]
-    (fn [point]
-      (Math/pow
-       (shortest-distance point centroids)
-       2))))
+;; [clojure.core.reducers :as reducers]
 
-
-(defn uniform-sample
-  [ds-seq n]
-  (apply res-sample/merge
-         (map #(res-sample/sample (ds/rowvecs %) n) ds-seq)))
-
-(defn weighted-sample
-  [ds-seq weight-fn n]
-  (apply res-sample/merge
-         (map
-          #(res-sample/sample
-            (ds/rowvecs %) n
-            :weigh weight-fn)
-          ds-seq)))
+;; (defn find-domain
+;;   "Calculates the min and max for each column in the points dataset."
+;;   [^KMeansState configuration]
+;;   (log/info "Finding the domain")
+;;   (reducers/fold
+;;    (fn
+;;      ([] [(repeat Integer/MAX_VALUE) (repeat Integer/MIN_VALUE)])
+;;      ([x y]
+;;       [(math/emn (first x) (first y))
+;;        (math/emx (second x) (second y))]))
+;;    (eduction
+;;     (comp
+;;      (map #(ds/brief % {:stat-names [:min :max]}))
+;;      (map (juxt
+;;            (partial map :min)
+;;            (partial map :max))))
+;;     (read-dataset-seq configuration :points))))
 
 
-(defn find-domain
-  "Calculates the min and max for each column in the points dataset."
-  [^KMeansState configuration]
-  (log/info "Finding the domain")
-  (reducers/fold
-   (fn
-     ([] [(repeat Integer/MAX_VALUE) (repeat Integer/MIN_VALUE)])
-     ([x y]
-      [(math/emn (first x) (first y))
-       (math/emx (second x) (second y))]))
-   (eduction
-    (comp
-     (map #(ds/brief % {:stat-names [:min :max]}))
-     (map (juxt
-           (partial map :min)
-           (partial map :max))))
-    (read-dataset-seq configuration :points))))
+;; (defn random-between
+;;   "Generate a random number between [[min max]]."
+;;   [[min max]]
+;;   (+ (* (rand) (- max min)) min))
 
+;; (defn random-centroid
+;;   "Generate a random point within the domain."
+;;   [domain]
+;;   (map random-between
+;;        (map vector (first domain) (second domain))))
 
-(defn random-between
-  "Generate a random number between [[min max]]."
-  [[min max]]
-  (+ (* (rand) (- max min)) min))
-
-(defn random-centroid
-  "Generate a random point within the domain."
-  [domain]
-  (map random-between
-       (map vector (first domain) (second domain))))
+;; (defmethod initialize-centroids
+;;   :random
+;;   [k-means-state]
+;;   (log/info "Performing random (naive) k means initialization")
+;;   (let [k (:k k-means-state)
+;;         domain (find-domain k-means-state)
+;;         rows->maps (partial ds-seq->rows->maps
+;;                             (read-dataset-seq k-means-state :points))]
+;;     (log/info "Generating initial centroids")
+;;     (ds/->dataset (rows->maps (repeatedly k #(random-centroid domain))))))
 
 
 (defn ds-seq->rows->maps
@@ -160,42 +140,6 @@
     (map #(zipmap column-names %) rows)))
 
 
-
-(defmethod initialize-centroids
-  :random
-  [k-means-state]
-  (log/info "Performing random (naive) k means initialization")
-  (let [k (:k k-means-state)
-        domain (find-domain k-means-state)
-        rows->maps (partial ds-seq->rows->maps
-                            (read-dataset-seq k-means-state :points))]
-    (log/info "Generating initial centroids")
-    (ds/->dataset (rows->maps (repeatedly k #(random-centroid domain))))))
-
-
-(defmethod initialize-centroids
-  :classical
-  [k-means-state]
-  (log/info "Performing classical (naive) k means initialization")
-  (let [k (:k k-means-state)
-        rows->maps (partial ds-seq->rows->maps
-                            (read-dataset-seq k-means-state :points))]
-    (ds/->dataset (rows->maps (uniform-sample (read-dataset-seq k-means-state :points) k)))))
-
-(defmethod initialize-centroids
-  :k-means-++
-  [k-means-state]
-  (log/info "Performing k means++ initialization")
-  (let [ds-seq (read-dataset-seq k-means-state :points)
-        k (:k k-means-state)
-        rows->maps (partial ds-seq->rows->maps ds-seq)]
-    (loop [centers (uniform-sample ds-seq 1)]
-      (if (= k (count centers))
-        (ds/->dataset (rows->maps centers))
-        (recur (concat centers
-                       (weighted-sample ds-seq
-                                        (k-means-++-weight k-means-state centers)
-                                        1)))))))
 
 
 
@@ -384,6 +328,72 @@
      filename)
     (println "Options are" options)
     (apply k-means filename k options)))
+
+
+
+
+
+
+
+;; Initializations 
+
+(defn shortest-distance-*
+  "Denotes the shortest distance from a data point to a 
+   center. Which distance to use is decided by the k means 
+   configuration."
+  [^KMeansState configuration]
+  (let [distance-fn (:distance-fn configuration)]
+    (fn [point centroids]
+      (apply min (map #(distance-fn point %) centroids)))))
+
+(defn k-means-++-weight
+  [configuration centroids]
+  (let [shortest-distance (shortest-distance-* configuration)]
+    (fn [point]
+      (Math/pow
+       (shortest-distance point centroids)
+       2))))
+
+
+(defn uniform-sample
+  [ds-seq n]
+  (apply res-sample/merge
+         (map #(res-sample/sample (ds/rowvecs %) n) ds-seq)))
+
+(defn weighted-sample
+  [ds-seq weight-fn n]
+  (apply res-sample/merge
+         (map
+          #(res-sample/sample
+            (ds/rowvecs %) n
+            :weigh weight-fn)
+          ds-seq)))
+
+
+
+(defmethod initialize-centroids
+  :classical
+  [k-means-state]
+  (log/info "Performing classical (naive) k means initialization")
+  (let [k (:k k-means-state)
+        rows->maps (partial ds-seq->rows->maps
+                            (read-dataset-seq k-means-state :points))]
+    (ds/->dataset (rows->maps (uniform-sample (read-dataset-seq k-means-state :points) k)))))
+
+(defmethod initialize-centroids
+  :k-means-++
+  [k-means-state]
+  (log/info "Performing k means++ initialization")
+  (let [ds-seq (read-dataset-seq k-means-state :points)
+        k (:k k-means-state)
+        rows->maps (partial ds-seq->rows->maps ds-seq)]
+    (loop [centers (uniform-sample ds-seq 1)]
+      (if (= k (count centers))
+        (ds/->dataset (rows->maps centers))
+        (recur (concat centers
+                       (weighted-sample ds-seq
+                                        (k-means-++-weight k-means-state centers)
+                                        1)))))))
 
 
 (defmethod initialize-centroids
