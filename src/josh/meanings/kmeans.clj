@@ -49,7 +49,7 @@
 ;; caller. So we track that here.
 (def initialization-schemes
   "Supported initialization methods for generating initial centroids."
-  #{:classical :random :k-means-++ :k-means-parallel})
+  #{:niave :k-means-++ :k-means-parallel})
 
 (defmulti initialize-centroids
   "Initializes centroids according to the initialization 
@@ -89,49 +89,6 @@
 
 
 
-
-;; [clojure.core.reducers :as reducers]
-
-;; (defn find-domain
-;;   "Calculates the min and max for each column in the points dataset."
-;;   [^KMeansState configuration]
-;;   (log/info "Finding the domain")
-;;   (reducers/fold
-;;    (fn
-;;      ([] [(repeat Integer/MAX_VALUE) (repeat Integer/MIN_VALUE)])
-;;      ([x y]
-;;       [(math/emn (first x) (first y))
-;;        (math/emx (second x) (second y))]))
-;;    (eduction
-;;     (comp
-;;      (map #(ds/brief % {:stat-names [:min :max]}))
-;;      (map (juxt
-;;            (partial map :min)
-;;            (partial map :max))))
-;;     (read-dataset-seq configuration :points))))
-
-
-;; (defn random-between
-;;   "Generate a random number between [[min max]]."
-;;   [[min max]]
-;;   (+ (* (rand) (- max min)) min))
-
-;; (defn random-centroid
-;;   "Generate a random point within the domain."
-;;   [domain]
-;;   (map random-between
-;;        (map vector (first domain) (second domain))))
-
-;; (defmethod initialize-centroids
-;;   :random
-;;   [k-means-state]
-;;   (log/info "Performing random (naive) k means initialization")
-;;   (let [k (:k k-means-state)
-;;         domain (find-domain k-means-state)
-;;         rows->maps (partial ds-seq->rows->maps
-;;                             (read-dataset-seq k-means-state :points))]
-;;     (log/info "Generating initial centroids")
-;;     (ds/->dataset (rows->maps (repeatedly k #(random-centroid domain))))))
 
 
 (defn ds-seq->rows->maps
@@ -372,7 +329,7 @@
 
 
 (defmethod initialize-centroids
-  :classical
+  :niave
   [k-means-state]
   (log/info "Performing classical (naive) k means initialization")
   (let [k (:k k-means-state)
