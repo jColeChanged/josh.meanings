@@ -444,13 +444,13 @@
 ;; To help get around that we are willing to allow anything that we can 
 ;; transform into a dataset. We handle the transformation step via 
 ;; multimethods which dispatch based on the datasets type.
-(defmulti k-means-six
+(defmulti k-means
   (fn [dataset _ & _]
     (class dataset)))
 
 ;; In the ideal we don't have any work to do. We've already got a 
 ;; reference to the file we were hoping for.
-(defmethod k-means-six
+(defmethod k-means
   java.lang.String
   [points-filepath k & options]
   (let [k-means-state (initialize-k-means-state points-filepath k options)]
@@ -469,7 +469,7 @@
 ;; 
 ;; Really we're fine with accepting anything that can be understood by 
 ;; ds/->dataset. 
-(defmethod k-means-six
+(defmethod k-means
   clojure.lang.LazySeq
   [lazy-seq k & options]
   ;; We try to get a unique filename and we try to avoid writing to a 
@@ -488,7 +488,7 @@
      (ds/->dataset lazy-seq)
      filename)
     (println "Options are" options)
-    (apply k-means-six filename k options)))
+    (apply k-means filename k options)))
 
 
 
@@ -509,7 +509,7 @@
       (if (= i iterations)
         (do
           (log/info "Finished oversampling. Reducing to k centroids")
-          (k-means-six (map rows->maps centers) k :init :k-means-++ :distance-fn (:distance-fn k-means-state)))
+          (k-means (map rows->maps centers) k :init :k-means-++ :distance-fn (:distance-fn k-means-state)))
         (recur (inc i) (concat centers
                                (weighted-sample ds-seq
                                                 (k-means-++-weight k-means-state centers)
