@@ -110,8 +110,6 @@
 
 (def assignments-filename (generate-filename "assignments"))
 
-(def history-filename (generate-filename "history"))
-
 
 ;; Read and realize centroids from a file.
 (defn read-centroids-from-file

@@ -31,13 +31,12 @@
 ;; 
 ;; State is tracked indirectly via files so that we can run 
 ;; on datasets that are too large to fit in memory. Points, centroids, 
-;; assignments, and history are all this type of file references. 
+;; assignments are all this type of file references. 
 (defrecord KMeansState
            [k
             points
             centroids
             assignments
-            history
             format
             init
             distance-fn])
@@ -82,7 +81,6 @@
                                            points-file
                                            (persist/change-extension (persist/centroids-filename points-file) :csv)
                                            (persist/change-extension (persist/assignments-filename points-file) format)
-                                           (persist/change-extension (persist/history-filename points-file) :csv)
                                            format
                                            init
                                            distance-fn) :points)))
