@@ -150,26 +150,49 @@
   (.exists (clojure.java.io/file filename)))
 
 
+;; k-means-||-initialization includes k-means-++-initialization 
+;; as well as k-means itself as a special case. This introduces 
+;; a circular dependency. So we need to declare the initialization 
+;; schemes before we define them if we want to provide a dynamic 
+;; and validated choice of init scheme.
+(declare k-means-naive-initialization
+         k-means-random-initialization
+         k-means-++-initialization
+         k-means-||-initialization)
 
+(def initialization-schemes
+  "Supported initialization methods for generating intial centroids."
+  {:classical k-means-naive-initialization
+   :random k-means-random-initialization
+   :kmeans-++ k-means-++-initialization
+   :kmeans-parallel k-means-||-initialization})
 
+(def *default-format* :parquet)
+(def *default-init*   :k-means-parallel)
 
 (defn initialize-k-means-state
   "Sets initial configuration options for the k means calculation."
-  [points-file k]
-  (log/info "Initializing k-means state")
-  (let [format :parquet
-        init :random
-        distance-fn math/dist-emd
-        state (KMeansState.
-               k
-               points-file
-               (change-extension (centroids-filename points-file) :csv)
-               (change-extension (assignments-filename points-file) format)
-               (change-extension (history-filename points-file) :csv)
-               format
-               init
-               distance-fn)]
-    (csv-seq-filename->format-seq state :points)))
+  [points-file k options]
+  (log/debug "Validating k-means options")
+  (let [format (or (:format options) *default-format*)
+        init (or (:init options) *default-init*)
+        distance-fn math/dist-emd]
+    (when (not (contains? formats format))
+      (throw (str "Invalid format provided. Format must be one of" (keys formats))))
+    (when (not (contains? initialization-schemes init))
+      (throw (str "Invalid initialization scheme provided. Scheme must be of one of"
+                  (keys initialization-schemes))))
+    (log/debug "Validated k mean options")
+    (log/info "Generating k mean configuration")
+    (csv-seq-filename->format-seq (KMeansState.
+                                   k
+                                   points-file
+                                   (change-extension (centroids-filename points-file) :csv)
+                                   (change-extension (assignments-filename points-file) format)
+                                   (change-extension (history-filename points-file) :csv)
+                                   format
+                                   init
+                                   distance-fn) :points)))
 
 
 ;; Read and realize centroids from a file.
@@ -250,7 +273,7 @@
                    (map #(zipmap column-names %) (repeatedly k #(random-centroid domain)))))))
 
 
-(defn k-means-classical-initialization
+(defn k-means-naive-initialization
   [k-means-state]
   (uniform-sample (read-dataset-seq k-means-state :points) (:k k-means-state)))
 
@@ -278,12 +301,7 @@
                                       oversample-factor))))))
 
 
-(def initialization-schemes
-  "Supported initialization methods for generating intial centroids."
-  {:classical k-means-classical-initialization
-   :random k-means-random-initialization
-   :kmeans-++ k-means-++-initialization
-   :kmeans-parallel nil})
+
 
 
 (defn find-closest-centroid
@@ -414,7 +432,7 @@
   (= centroids-1 centroids-2))
 
 
-(defn initialize-centroids 
+(defn initialize-centroids
   "Initializes centroids according to the provided centroid
    initialization configuration."
   [^KMeansState configuration]
@@ -429,9 +447,11 @@
 
 
 
+
 (defn k-means
-  [points-file k]
-  (let [k-means-state (initialize-k-means-state points-file k)]
+  "Performs k-means clustering on a dataset."
+  [points-file k & options]
+  (let [k-means-state (initialize-k-means-state points-file k options)]
     (log/info "Starting optimization process for" k-means-state)
     (loop [centroids (initialize-centroids k-means-state)
            centroids-history []]
