@@ -497,6 +497,7 @@
 
 (defn k-means-||-initialization
   [k-means-state]
+  (log/info "Performing k means parallel initialization")
   (let [ds-seq (read-dataset-seq k-means-state :points)
         k (:k k-means-state)
         oversample-factor (* 2 k)
@@ -506,7 +507,9 @@
     (loop [i 0
            centers (uniform-sample ds-seq 1)]
       (if (= i iterations)
-        (k-means-six (map rows->maps centers) k :init :k-means-++ :distance-fn (:distance-fn k-means-state))
+        (do
+          (log/info "Finished oversampling. Reducing to k centroids")
+          (k-means-six (map rows->maps centers) k :init :k-means-++ :distance-fn (:distance-fn k-means-state)))
         (recur (inc i) (concat centers
                                (weighted-sample ds-seq
                                                 (k-means-++-weight k-means-state centers)
