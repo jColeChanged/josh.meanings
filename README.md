@@ -18,21 +18,21 @@ datasets by leveraging this program.
 
 ## Technical Details (God willing)
 
-[x] Uses `k-means||` initialization.
+ - [x] Uses `k-means||` initialization.
 
-[x] Uses `parquet` to optimize disk access.
+ - [x] Uses `parquet` to optimize disk access.
 
-[ ] Leverages Clojure's `transducers` to use all cores.
+ - [ ] Leverages Clojure's `transducers` to use all cores.
 
-[ ] Uses __GPUs__ to optimize matrix math when available.
+ - [ ] Uses __GPUs__ to optimize matrix math when available.
   
-[ ] Runs multiple times to prevent unlucky local mimina. 
+ - [ ] Runs multiple times to prevent unlucky local mimina. 
   
-[ ] Emits improvements as events to enable reactive programming.
+ - [ ] Emits improvements as events to enable reactive programming.
 
-[x] Tested on both massive datasets and toy datasets.
+ - [x] Tested on both massive datasets and toy datasets.
 
-[ ] Supports choice of distance function, but defaults to EMD.
+ - [ ] Supports choice of distance function, but defaults to EMD.
 
 ## Caveats
 
