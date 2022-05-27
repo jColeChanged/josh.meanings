@@ -41,15 +41,7 @@
             distance-fn])
 
 
-;; k-means-||-initialization includes k-means-++-initialization 
-;; as well as k-means itself as a special case. This introduces 
-;; a circular dependency. So we don't lay out initialization schemes 
-;; via a map. Instead we rely on defmulti provide dispatch. Neverthless 
-;; it is valuable to be able to know the supported dispatch keys as a 
-;; caller. So we track that here.
-(def initialization-schemes
-  "Supported initialization methods for generating initial centroids."
-  #{:niave :k-means-++ :k-means-parallel})
+
 
 (defmulti initialize-centroids
   "Initializes centroids according to the initialization 
@@ -76,9 +68,6 @@
         distance-fn math/dist-emd]
     (when (not (contains? persist/formats format))
       (throw (Exception. (str "Invalid format provided. Format must be one of " (keys persist/formats)))))
-    (when (not (contains? initialization-schemes init))
-      (throw (Exception. (str "Invalid initialization scheme provided. Scheme must be of one of "
-                              (keys initialization-schemes)))))
     (log/debug "Validated k mean options")
     (log/info "Generating k mean configuration")
     (persist/csv-seq-filename->format-seq (KMeansState.
