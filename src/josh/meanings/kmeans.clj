@@ -57,7 +57,7 @@
 
 
 (def *default-format* :parquet)
-(def *default-init*   :k-means-++)
+(def *default-init*   :k-means-parallel)
 
 (defn initialize-k-means-state
   "Sets initial configuration options for the k means calculation."
@@ -241,7 +241,7 @@
 (defmethod k-means
   java.lang.String
   [points-filepath k & options]
-  (let [k-means-state (initialize-k-means-state points-filepath k options)
+  (let [k-means-state (initialize-k-means-state points-filepath k (apply hash-map options))
         initial-centroids (initialize-centroids! k-means-state)]
     (log/info "Starting optimization process for" k-means-state)
     (loop [centroids initial-centroids
