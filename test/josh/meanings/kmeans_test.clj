@@ -163,7 +163,7 @@
   (with-large-dataset
     (let [state (initialize-k-means-state large-dataset-filename large-dataset-k {})]
       (testing "Test that initial generation of centroids works on large files."
-        (initialize-centroids state))
+        (initialize-centroids! state))
       (testing "Test that initial generating assignments work on large files."
         (assign-clusters state))
       (testing "Testing that calculating objective works on large files."

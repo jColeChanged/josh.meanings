@@ -56,6 +56,12 @@
    method specified in the configuration."
   :init)
 
+(defn initialize-centroids!
+  [k-means-state]
+  (let [centroids (initialize-centroids k-means-state)]
+    (write-dataset-seq k-means-state :centroids centroids)
+    centroids))
+
 
 
 (def *default-format* :parquet)
@@ -247,9 +253,7 @@
   java.lang.String
   [points-filepath k & options]
   (let [k-means-state (initialize-k-means-state points-filepath k options)
-        initial-centroids (initialize-centroids k-means-state)]
-    (write-dataset-seq k-means-state :centroids initial-centroids)
-    ;; (ds/write! initial-centroids (:centroids k-means-state))
+        initial-centroids (initialize-centroids! k-means-state)]
     (log/info "Starting optimization process for" k-means-state)
     (loop [centroids initial-centroids
            centroids-history []]
