@@ -79,24 +79,10 @@
                                            init
                                            distance-fn) :points)))
 
-
-
-
-
-
-
-
 (defn ds-seq->rows->maps
   [ds-seq rows]
   (let [column-names (dataset-seq->column-names ds-seq)]
     (map #(zipmap column-names %) rows)))
-
-
-
-
-
-
-
 
 (defn find-closest-centroid
   [^KMeansState configuration]
