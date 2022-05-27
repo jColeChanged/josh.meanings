@@ -32,7 +32,7 @@ datasets by leveraging this program.
 
  - [x] Tested on both massive datasets and toy datasets.
 
- - [ ] Supports choice of distance function, but defaults to EMD.
+ - [x] Supports choice of distance function, but defaults to EMD.
 
 ## Caveats
 

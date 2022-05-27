@@ -19,6 +19,7 @@
    [clojure.string])
   (:use
    [josh.meanings.persistence :as persist]
+   [josh.meanings.distances :as distances]
    [clojure.java.io :as io]
    [tech.v3.dataset.math :as ds-math]
    [fastmath.vector :as math])
@@ -38,6 +39,7 @@
             assignments
             format
             init
+            distance-key
             distance-fn])
 
 
@@ -56,16 +58,18 @@
 
 
 
-(def *default-format* :parquet)
-(def *default-init*   :k-means-parallel)
+(def default-format :parquet)
+(def default-init   :k-means-parallel)
+(def default-distance-fn :emd)
 
 (defn initialize-k-means-state
   "Sets initial configuration options for the k means calculation."
   [points-file k options]
   (log/debug "Validating k-means options")
-  (let [format (or (:format options) *default-format*)
-        init (or (:init options) *default-init*)
-        distance-fn math/dist-emd]
+  (let [format (or (:format options) default-format)
+        init (or (:init options) default-init)
+        distance-key (or (:distance-fn options) default-distance-fn)
+        distance-fn (distances/get-distance-fn distance-key)]
     (when (not (contains? persist/formats format))
       (throw (Exception. (str "Invalid format provided. Format must be one of " (keys persist/formats)))))
     (log/debug "Validated k mean options")
@@ -77,6 +81,7 @@
                                            (persist/change-extension (persist/assignments-filename points-file) format)
                                            format
                                            init
+                                           distance-key
                                            distance-fn) :points)))
 
 (defn ds-seq->rows->maps
@@ -250,7 +255,7 @@
   ;; We try to get a unique filename and we try to avoid writing to a 
   ;; format and we try to avoid the extra work of converting between 
   ;; formats if we can help it.
-  (let [format (or (:format options) *default-format*)
+  (let [format (or (:format options) default-format)
         suffix (:suffix (format formats))
         ;; I didn't want to use a full path like you would get with a temp 
         ;; file here, because doing so would break the namespacing of `centroids.`
@@ -346,7 +351,7 @@
       (if (= i iterations)
         (do
           (log/info "Finished oversampling. Reducing to k centroids")
-          (k-means (rows->maps centers) k :init :k-means-++ :distance-fn (:distance-fn k-means-state)))
+          (k-means (rows->maps centers) k :init :k-means-++ :distance-fn (:distance-key k-means-state)))
         (recur (inc i) (concat centers
                                (weighted-sample ds-seq
                                                 (k-means-++-weight k-means-state centers)
