@@ -1,5 +1,7 @@
 # meaning
 
+[![CircleCI](https://circleci.com/gh/jcolechanged/josh.meanings.svg?style=shield&circle-token=a4b905e7d28f1f397566185359251b3d7d959818)](https://app.circleci.com/pipelines/github/jColeChanged/josh.meanings?filter=main)
+
 A mean is a center of points. A means, a way of accomplishing 
 that which is sought. Meaning, the latent concept vector that 
 does not vary even though the words which express it might. 
