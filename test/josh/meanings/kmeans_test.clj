@@ -1,7 +1,8 @@
 (ns josh.meanings.kmeans-test
   (:require [clojure.test :refer :all]
             [tech.v3.dataset :as ds]
-            [josh.meanings.kmeans :refer :all])
+            [josh.meanings.kmeans :refer :all]
+            [josh.meanings.persistence :refer :all])
   (:use [clojure.data.csv :as csv]
         [clojure.java.io :as io]))
 
@@ -105,15 +106,15 @@
 
 (deftest test-equal-inputs-have-equal-assignments
   (with-small-dataset
-    (testing "That the program runs without throwing an exception."
-      (is (= nil (k-means small-dataset-filename small-k)))
-      (let [assignments ((ds/->dataset "assignments.test.small.parquet") "assignment")]
-        (testing "[1 2 3] are all assigned the same value."
-          (is (apply = (take 4 assignments))))
-        (testing "[4 5 6] are all assigned the same value."
-          (is (apply = (take 6 (drop 4 assignments)))))
-        (testing "[7 8 9] are assigned the same value."
-          (is (apply = (take 3 (drop 10 assignments)))))))))
+    (testing "That the right number of centroids are returned."
+      (is (= (count (k-means small-dataset-filename small-k)) small-k)))
+    (let [assignments ((ds/->dataset "assignments.test.small.parquet") "assignment")]
+      (testing "[1 2 3] are all assigned the same value."
+        (is (apply = (take 4 assignments))))
+      (testing "[4 5 6] are all assigned the same value."
+        (is (apply = (take 6 (drop 4 assignments)))))
+      (testing "[7 8 9] are assigned the same value."
+        (is (apply = (take 3 (drop 10 assignments))))))))
 
 
 
@@ -160,7 +161,7 @@
 
 (deftest test-k-means-large-dataset-memory-bound
   (with-large-dataset
-    (let [state (initialize-k-means-state large-dataset-filename large-dataset-k)]
+    (let [state (initialize-k-means-state large-dataset-filename large-dataset-k {})]
       (testing "Test that initial generation of centroids works on large files."
         (initialize-centroids state))
       (testing "Test that initial generating assignments work on large files."
@@ -176,7 +177,7 @@
 
 (deftest test-conversion-of-csv-to-format
   (with-small-dataset
-    (let [state (initialize-k-means-state small-dataset-filename small-k)]
+    (let [state (initialize-k-means-state small-dataset-filename small-k {})]
       (let [new-state (csv-seq-filename->format-seq state :points)
             original-dataset (read-dataset-seq state :points)
             new-dataset (read-dataset-seq new-state :points)]
@@ -189,7 +190,7 @@
           (is (reduce + (map count original-dataset))
               (reduce + (map count new-dataset)))))))
   (with-large-dataset
-    (let [state (initialize-k-means-state large-dataset-filename large-dataset-k)]
+    (let [state (initialize-k-means-state large-dataset-filename large-dataset-k {})]
       (let [new-state (csv-seq-filename->format-seq state :points)
             original-dataset (read-dataset-seq state :points)
             new-dataset (read-dataset-seq new-state :points)]
