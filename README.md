@@ -1,4 +1,4 @@
-# meaning
+# josh.meanings
 
 [![CircleCI](https://circleci.com/gh/jColeChanged/josh.meanings.svg?style=shield&circle-token=a4b905e7d28f1f397566185359251b3d7d959818)](https://app.circleci.com/pipelines/github/jColeChanged/josh.meanings?filter=main)
 
@@ -12,23 +12,54 @@ meanings through the process of repeatedly calculating means.
 This is a program for computing `k-means` in Clojure. 
 It is built to handle workloads which involve datasets 
 which are too large to fit in memory, but not so large that 
-the computation cannot be persisted to disk. I hope that you 
-have a painless experience working with larger than memory 
-datasets by leveraging this program.
+the computation cannot be persisted to disk.
 
 ## Technical Details (God willing)
 
- - [x] Uses `k-means||` initialization.
+ - Initialization is implemented as a multimethod whose 
+   dispatch is chosen by the `:init` keyword. The following 
+   initialization methods are supported.
 
- - [x] Uses `parquet` to optimize disk access.
+   - `:niave`
+   - `:k-means-++`
+   - `:k-means-parallel`
 
- - [ ] Leverages Clojure's `transducers` to use all cores.
+   If you would prefer a different initialization scheme, you 
+   can provide your own by adding a new `defmethod`.
 
- - [ ] Uses GPUs to optimize matrix math when available.
+   When calling the library the implementation will default to 
+   `k-means-parallel`.
+
+ - Assumes that datasets will be larger than memory, but smaller 
+   than disk. Callers must provide a reference to the file which 
+   contains the dataset or a lazy sequence so that the dataset is 
+   never fully realized in memory. The library leverages 
+   `techascent.ml.dataset` to handle dataset serialization and 
+   deserialization.
+
+   The following input formats are accepted:
+
+    - Lazy sequences
+    - CSV files
+    - Arrow files
+    - Arrow streams
+    - Parquet
+
+   Some file types aren't well suited to high performance 
+   serialization and deserialization. The `:format` keyword controls 
+   what file format will be used to persist data during the computation. 
+   The list of supports formats are:
+
+    - `:csv`
+    - `:arrow`
+    - `:arrows`
+    - `:parquet`
+
+   By default the `:parquet` format will be used.
+
+ - [ ] Uses neanderthal to speed up matrix math.
   
- - [ ] Runs multiple times to prevent unlucky local mimina. 
-  
- - [ ] Emits improvements as events to enable reactive programming.
+ - [x] Runs multiple times to prevent unlucky local mimina.
 
  - [x] Tested on both massive datasets and toy datasets.
 
