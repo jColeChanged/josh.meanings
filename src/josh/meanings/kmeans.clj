@@ -28,6 +28,9 @@
 (set! *warn-on-reflection* true)
 
 
+(defrecord ClusterResult
+  [centroids cost configuration])
+
 (defrecord KMeansState
            [k  ;; Number of clusters
 
@@ -61,6 +64,7 @@
 (def default-format :parquet)
 (def default-init   :k-means-parallel)
 (def default-distance-fn :emd)
+(def default-run-count 3)
 
 (defn initialize-k-means-state
   "Sets initial configuration options for the k means calculation."
@@ -240,7 +244,10 @@
       (assign-clusters k-means-state)
       (let [new-centroids (recalculate-means k-means-state)]
         (if (stabilized? new-centroids centroids)
-          new-centroids
+          (map->ClusterResult 
+           {:centroids new-centroids 
+            :cost (calculate-objective k-means-state)
+            :configuration k-means-state})
           (recur new-centroids (conj centroids-history centroids)))))))
 
 ;; If we don't get a reference to our file, we'll have to create it.
@@ -267,8 +274,13 @@
     (ds/write!
      (ds/->dataset lazy-seq)
      filename)
-    (println "Options are" options)
     (apply k-means filename k options)))
+
+
+(defn k-means-seq
+  "Returns a lazy sequence of m ClusterResult."
+  [dataset k m & options]
+  (repeatedly m #(apply k-means dataset m k options)))
 
 
 
@@ -351,7 +363,7 @@
       (if (= i iterations)
         (do
           (log/info "Finished oversampling. Reducing to k centroids")
-          (k-means (rows->maps centers) k :init :k-means-++ :distance-fn (:distance-key k-means-state)))
+          (:centroids (k-means (rows->maps centers) k :init :k-means-++ :distance-fn (:distance-key k-means-state))))
         (recur (inc i) (concat centers
                                (weighted-sample ds-seq
                                                 (k-means-++-weight k-means-state centers)
