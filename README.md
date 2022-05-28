@@ -24,7 +24,7 @@ datasets by leveraging this program.
 
  - [ ] Leverages Clojure's `transducers` to use all cores.
 
- - [ ] Uses __GPUs__ to optimize matrix math when available.
+ - [ ] Uses GPUs to optimize matrix math when available.
   
  - [ ] Runs multiple times to prevent unlucky local mimina. 
   

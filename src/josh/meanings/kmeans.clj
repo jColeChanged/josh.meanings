@@ -53,7 +53,7 @@
 (defn initialize-centroids!
   [k-means-state]
   (let [centroids (initialize-centroids k-means-state)]
-    (write-dataset-seq k-means-state :centroids centroids)
+    (persist/write-dataset-seq k-means-state :centroids centroids)
     centroids))
 
 
@@ -86,7 +86,7 @@
 
 (defn ds-seq->rows->maps
   [ds-seq rows]
-  (let [column-names (dataset-seq->column-names ds-seq)]
+  (let [column-names (persist/dataset-seq->column-names ds-seq)]
     (map #(zipmap column-names %) rows)))
 
 (defn find-closest-centroid
@@ -99,8 +99,8 @@
 (defn assign-clusters
   [k-means-state]
   (log/info "Generating assignments")
-  (let [datasets (read-dataset-seq k-means-state :points)
-        columns (dataset-seq->column-names datasets)
+  (let [datasets (persist/read-dataset-seq k-means-state :points)
+        columns (persist/dataset-seq->column-names datasets)
         to-vec (fn [row] (map #(get row %) columns))
         assign (comp
                 (partial hash-map :assignment)
@@ -109,7 +109,7 @@
                  (persist/read-centroids-from-file k-means-state))
                 to-vec)
         map-assignment (fn [dataset] (ds/row-map dataset assign))]
-    (write-dataset-seq k-means-state :assignments (map map-assignment datasets))))
+    (persist/write-dataset-seq k-means-state :assignments (map map-assignment datasets))))
 
 
 (defn calculate-objective
@@ -125,8 +125,8 @@
                  (map (partial map (:distance-fn k-means-state))
                       (eduction
                        assigns->centroids
-                       (read-dataset-seq k-means-state :assignments))
-                      (eduction (map ds/rowvecs) (read-dataset-seq k-means-state :points)))))))
+                       (persist/read-dataset-seq k-means-state :assignments))
+                      (eduction (map ds/rowvecs) (persist/read-dataset-seq k-means-state :points)))))))
 
 
 
@@ -256,7 +256,7 @@
   ;; format and we try to avoid the extra work of converting between 
   ;; formats if we can help it.
   (let [format (or (:format options) default-format)
-        suffix (:suffix (format formats))
+        suffix (:suffix (format persist/formats))
         ;; I didn't want to use a full path like you would get with a temp 
         ;; file here, because doing so would break the namespacing of `centroids.`
         ;; and `assignments.` 
@@ -318,14 +318,14 @@
   (log/info "Performing classical (naive) k means initialization")
   (let [k (:k k-means-state)
         rows->maps (partial ds-seq->rows->maps
-                            (read-dataset-seq k-means-state :points))]
-    (ds/->dataset (rows->maps (uniform-sample (read-dataset-seq k-means-state :points) k)))))
+                            (persist/read-dataset-seq k-means-state :points))]
+    (ds/->dataset (rows->maps (uniform-sample (persist/read-dataset-seq k-means-state :points) k)))))
 
 (defmethod initialize-centroids
   :k-means-++
   [k-means-state]
   (log/info "Performing k means++ initialization")
-  (let [ds-seq (read-dataset-seq k-means-state :points)
+  (let [ds-seq (persist/read-dataset-seq k-means-state :points)
         k (:k k-means-state)
         rows->maps (partial ds-seq->rows->maps ds-seq)]
     (loop [centers (uniform-sample ds-seq 1)]
@@ -341,7 +341,7 @@
   :k-means-parallel
   [k-means-state]
   (log/info "Performing k means parallel initialization")
-  (let [ds-seq (read-dataset-seq k-means-state :points)
+  (let [ds-seq (persist/read-dataset-seq k-means-state :points)
         k (:k k-means-state)
         oversample-factor (* 2 k)
         iterations 5
