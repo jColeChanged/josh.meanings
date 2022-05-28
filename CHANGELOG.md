@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 
+## [0.1.4] - 2022-05-28
+
+ - Default calling convention now runs multiple instances of k means 
+   clustering.
+ - k-means can now be called with an option to specify which distance 
+   function to use. 
+ - k-means now supports many different distance functions.
+
 ## [0.1.3] - 2022-05-25
 
  - Now supporting initialization via k-means++.
@@ -14,8 +22,7 @@ All notable changes to this project will be documented in this file. This change
  - Now supporting arrows format.
  - k-means can now be called with options to determine preferred file format.
  - Added logs to help make progress of computations more obvious.
- - Added the `initialize-centroids` multimethod; choice of initialization method 
- can now be controlled by callers via multimethods.
+ - Added the `initialize-centroids` multimethod; choice of initialization method can now be controlled by callers via multimethods.
  - Now support calling k-means with lazyseqs which are ->dataset compatible.
 
 ## [0.1.2] - 2022-05-09
