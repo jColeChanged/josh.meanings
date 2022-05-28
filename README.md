@@ -59,52 +59,30 @@ the computation cannot be persisted to disk.
 
  - [ ] Uses neanderthal to speed up matrix math.
   
- - [x] Runs multiple times to prevent unlucky local mimina.
+ - Though it is possible to run k means a single time this is not 
+   recommended. In general, k means doesn't find the globally optimal 
+   solution. it is especially prone to finding bad clusters when run 
+   using naive initialization, but even with k-means-++ and 
+   k-means-parallel there is stochasticity. Multiple runs can converge 
+   on different solutions. So it makes sense to run multiple times 
+   and keep the best one.
 
- - [x] Tested on both massive datasets and toy datasets.
+   `k-means-seq` returns a lazy sequence of cluster results as well as 
+   their cost. You can use it in various ways to ensure you get a good 
+   clustering run - perhaps taking the first ten cluster attempts and 
+   keeping the best one. Or perhaps something more sophisticated like 
+   continuing to do clusteirng until you think the probability of finding 
+   an improvmenet goes below some threshold.
 
- - [x] Supports choice of distance function, but defaults to EMD.
+ - Tested on both massive datasets and toy datasets. This is an area 
+   that could use further improvement, since right now the tests are for 
+   the happy path - the default number of runs, init, and format.
 
-## Caveats
-
- - Only intended to handle 1D clustering.
-
-## Comparison
-
-I wrote this because most of the other k means implementations 
-I tried using failed me horribly. sklearn couldn't handle larger 
-than memory datasets. dask.ml claimed to be able to solve that 
-problem, but it fell over when given a large dataset because it 
-broke the problem into more discerete subtasks than could fit in 
-memory. A C++ program which promises to be a fast k-means implementation 
-that could handle larger than memory files worked great as long as 
-you gave it files that could fit in memory and while in theory I could 
-have converted it to use it stxll in practice I did do so, but gave 
-it up as the wrong approach. Anyone who actually tries working on 
-larger than memory datasets is likely aware that a niave k means 
-implementation isn't the right path. Most libraries on GitHub 
-don't implement a k means that has good theoretical properties, but 
-niave k means, which takes far longer in both theory and practice 
-than other initialization methods while also having the joyous 
-property of having no guarantee of performance such that the path 
-to getting a good k means is the same path as getting a good sort 
-with bogo sort: keep trying until you get lucky. There were some 
-k means implementations which did do a good job. Spark was lovely. 
-However, I wanted to use arbitrary distance functions and for some 
-strange reason Spark didn't want to let me do that. So here we are.
-A library built and ready for you to do actual k means computation 
-and I have no desire whatsoever to go through the shit show that was 
-trying to use all these other solutions. If you are less burnt out 
-then I am, please, submit a pull request that compares the performance 
-of this k means implementation with others. I'm interested in these 
-comparisons:
-
-1. First and most importantly, does it work when you give it files that 
-are larger than RAM.
-
-2. What is the wallclock time for getting good clusters.
-
-3. Which library finds the clusters which best minimize the objective.
+ - Which distance function should is left up to a multimethod protocol 
+   that will dispatch based on the `:distance-fn` key. Special care 
+   should be taken when choosing non-euclidean distances, because k-means 
+   is not guaranteed to converge or stabilize with arbitrary distance 
+   functions.
 
 ## Usage
 
