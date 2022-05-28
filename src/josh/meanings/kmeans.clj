@@ -356,3 +356,13 @@
                                (weighted-sample ds-seq
                                                 (k-means-++-weight k-means-state centers)
                                                 oversample-factor)))))))
+
+
+;; When making changes its useful to be able to get a sense of how the change
+;; will impact the systems performance. This code block is largely worthless 
+;; at run time, but it is here because during development we want to be able to 
+;; benchmark differnet changes against each other.
+(comment
+  (require '[criterium.core :as criterium])
+  (criterium/quick-bench ...))
+
