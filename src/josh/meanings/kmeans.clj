@@ -305,11 +305,13 @@
 
 (defn uniform-sample
   [ds-seq n]
+  (log/info "Getting uniform sample of size" n)
   (apply res-sample/merge
          (map #(res-sample/sample (ds/rowvecs %) n) ds-seq)))
 
 (defn weighted-sample
   [ds-seq weight-fn n]
+  (log/info "Getting weighted sample of size" n)
   (apply res-sample/merge
          (map
           #(res-sample/sample
