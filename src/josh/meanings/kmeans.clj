@@ -283,11 +283,6 @@
   (repeatedly m #(apply k-means dataset m k options)))
 
 
-
-
-
-
-
 ;; Initializations 
 
 (defn shortest-distance-*
