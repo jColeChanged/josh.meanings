@@ -284,7 +284,6 @@
 
 
 ;; Initializations 
-
 (defn shortest-distance-*
   "Denotes the shortest distance from a data point to a 
    center. Which distance to use is decided by the k means 
@@ -293,6 +292,26 @@
   (let [distance-fn (:distance-fn configuration)]
     (fn [point centroids]
       (apply min (map #(distance-fn point %) centroids)))))
+
+
+(defn shortest-distance-dp-*
+  "Denotes the shortest distance from a data point to a 
+   center. Which distance to use is decided by the k means 
+   configuration."
+  [^KMeansState configuration centroids]
+  (let [distance-fn (:distance-fn configuration)]
+    (fn [point]
+      (apply min (map (partial distance-fn point) centroids)))))
+
+(defn compute-minimum 
+  [^KMeansState configuration ds centroids]
+  (let [distance-fn (:distance-fn configuration)]
+    (ds/column-map ds "minimum"
+                   (fn [& rows]
+                     (let [point (butlast rows)
+                           minimum (last rows)]
+                       (min minimum
+                            (apply min (map (partial distance-fn point) centroids))))))))
 
 (defn k-means-++-weight
   [configuration centroids]
@@ -331,6 +350,64 @@
     (ds/->dataset (rows->maps (uniform-sample (persist/read-dataset-seq k-means-state :points) k)))))
 
 (defmethod initialize-centroids
+  :k-means-++-2
+  [^KMeansState configuration]
+  (log/info "Performing k means++ initialization")
+  (log/info "Removing minimum column from dataset")
+  (persist/write-dataset-seq
+   configuration
+   :points
+   (->> (read-dataset-seq configuration :points)
+        (map #(dissoc % "minimum"))))
+  (log/info (first (read-dataset-seq configuration :points)))
+  (log/info "Returning centeroids found through initialization")
+  (log/info "Adding minimum column to dataset")
+  (persist/write-dataset-seq
+   configuration
+   :points
+   (->>
+    (read-dataset-seq configuration :points)
+    (map #(assoc % "minimum" Integer/MAX_VALUE))))
+  (log/info (first (read-dataset-seq configuration :points)))
+  (let [k-centroids
+        (loop [centers (map butlast (uniform-sample (read-dataset-seq configuration :points) 1))]
+          (log/info "Centers found so far" (count centers) "of" (:k configuration))
+          (log/info centers)
+          centers)]
+    (log/info "Found all centers")
+    (log/info "Removing minimum column from dataset")
+    (persist/write-dataset-seq
+     configuration
+     :points
+     (->> (read-dataset-seq configuration :points)
+          (map #(dissoc % "minimum"))))
+    (log/info (first (read-dataset-seq configuration :points)))
+    (log/info "Returning centeroids found through initialization")
+    k-centroids))
+
+
+(comment
+  (def state (initialize-k-means-state "test.parquet" 3 {:init :k-means-++-2}))
+  (initialize-centroids state))
+  ;; (compute-minimum
+  ;;  state
+  ;;  (->
+  ;;   (first (persist/read-dataset-seq state :points))
+  ;;   (assoc "minimum" Integer/MAX_VALUE))
+  ;;  [[1 2 3] [4 5 6]]))
+    ;;  (loop [centers (uniform-sample ds-seq 1)]
+    ;;    (log/info "Found " (count centers) "of" k "centers")
+    ;;    (log/info "Centers are" centers)
+    ;;    (if (= k (count centers))
+    ;;      (ds/->dataset (rows->maps centers))
+    ;;      (recur (concat centers
+    ;;                     (weighted-sample ds-seq
+    ;;                                      (k-means-++-weight configuration centers)
+    ;;                                      1)))))))
+
+
+
+(defmethod initialize-centroids
   :k-means-++
   [k-means-state]
   (log/info "Performing k means++ initialization")
@@ -344,6 +421,7 @@
                        (weighted-sample ds-seq
                                         (k-means-++-weight k-means-state centers)
                                         1)))))))
+
 
 
 (defmethod initialize-centroids
