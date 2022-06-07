@@ -308,8 +308,8 @@
   "Computes a new minimum distance for ds."
   [^KMeansState configuration ds centroids]
   (ds/column-map ds "dist"
-    (fn [& cols]
-      (shortest-distance (:distance-fn configuration) (butlast cols) centroids (last cols)))))
+                 (fn [& cols]
+                   (shortest-distance (:distance-fn configuration) (butlast cols) centroids (last cols)))))
 
 
 (defn k-means-++-weight
@@ -344,51 +344,84 @@
                             (persist/read-dataset-seq k-means-state :points))]
     (ds/->dataset (rows->maps (uniform-sample (persist/read-dataset-seq k-means-state :points) k)))))
 
-(defmethod initialize-centroids
-  :k-means-++-2
-  [^KMeansState configuration]
-  (log/info "Performing k means++ initialization")
-  (log/info "Adding minimum column to dataset")
-  (persist/write-dataset-seq configuration :points
-                             (->> (read-dataset-seq configuration :points)
-                                  (map #(dissoc % :dist))
-                                  (map #(assoc %  :dist Double/MAX_VALUE))))
-  (log/info (first (read-dataset-seq configuration :points)))
-  (let [k-centroids
-        (loop [latest-centers (map butlast (uniform-sample (read-dataset-seq configuration :points) 1))
-               all-centers latest-centers]
-          (log/info "Centers found so far" (count all-centers) "of" (:k configuration))
-          (log/info all-centers)
 
-          (if (= (count all-centers) (:k configuration))
-            all-centers
-            (do
-              (log/info "Finding new minimum distances")
-              (persist/write-dataset-seq configuration :points
-                (->>
-                 (read-dataset-seq configuration :points)
-                 (map #(compute-minimum configuration % latest-centers))))
-              (log/info "Dataset after finding minimum distances")
-              (log/info (first (read-dataset-seq configuration :points)))
-              (let [new-centers (map butlast (weighted-sample
-                                              (read-dataset-seq configuration :points)
-                                              #(Math/pow (last %) 2)
-                                              1))]
-                (recur
-                 new-centers
-                 (concat new-centers all-centers))))))]
-    (log/info "Removing minimum column from dataset")
-    (persist/write-dataset-seq configuration :points
-     (->> (read-dataset-seq configuration :points)
-          (map #(dissoc % "dist"))))
-    (log/info (first (read-dataset-seq configuration :points)))
-    (log/info "Returning centeroids found through initialization")
-    k-centroids))
 
 
 (comment
-  (def state (initialize-k-means-state "test.csv" 3 {:init :k-means-++-2}))
-  (initialize-centroids state))
+  (require '[criterium.core :as criterium])
+
+  (defmethod initialize-centroids
+    :k-means-++-2
+    [^KMeansState configuration]
+    (log/info "Performing k means++ initialization")
+    (log/info "Adding minimum column to dataset")
+    (persist/write-dataset-seq configuration :points
+                               (->> (read-dataset-seq configuration :points)
+                                    (map #(dissoc % :dist))
+                                    (map #(assoc %  :dist Double/MAX_VALUE))))
+    (log/debug (first (read-dataset-seq configuration :points)))
+    (let [k-centroids
+          (loop [latest-centers (map butlast (uniform-sample (read-dataset-seq configuration :points) 1))
+                 all-centers latest-centers]
+            (log/info "Centers found so far" (count all-centers) "of" (:k configuration))
+            (log/info all-centers)
+
+            (if (= (count all-centers) (:k configuration))
+              all-centers
+              (do
+                (log/info "Finding new minimum distances")
+                (persist/write-dataset-seq configuration :points
+                                           (->>
+                                            (read-dataset-seq configuration :points)
+                                            (map #(compute-minimum configuration % latest-centers))))
+                (log/debug "Dataset after finding minimum distances")
+                (log/debug (first (read-dataset-seq configuration :points)))
+                (let [new-centers (map butlast (weighted-sample
+                                                (read-dataset-seq configuration :points)
+                                                #(Math/pow (last %) 2)
+                                                1))]
+                  (recur
+                   new-centers
+                   (concat new-centers all-centers))))))]
+      (log/info "Removing minimum column from dataset")
+      (persist/write-dataset-seq configuration :points
+                                 (->> (read-dataset-seq configuration :points)
+                                      (map #(dissoc % "dist"))))
+      (log/debug (first (read-dataset-seq configuration :points)))
+      (log/debug "Returning centeroids found through initialization")
+      k-centroids))
+
+  (def state (initialize-k-means-state "test.csv" 7 {:init :k-means-++-2}))
+  (criterium/quick-bench (initialize-centroids state))
+  ;; Evaluation count : 6 in 6 samples of 1 calls.
+  ;;           Execution time mean : 4.693741 sec
+  ;;  Execution time std-deviation : 67.535664 ms
+  ;;  Execution time lower quantile : 4.603930 sec ( 2.5%)
+  ;;  Execution time upper quantile : 4.751427 sec (97.5%)
+  ;;                 Overhead used : 6.662891 ns
+  (def state (initialize-k-means-state "test.csv" 7 {:init :k-means-++}))
+  (criterium/quick-bench (initialize-centroids state))
+  ;; Evaluation count : 6 in 6 samples of 1 calls.
+  ;;           Execution time mean : 4.584893 sec
+  ;;  Execution time std-deviation : 38.544768 ms
+  ;;  Execution time lower quantile : 4.548982 sec ( 2.5%)
+  ;;  Execution time upper quantile : 4.634947 sec (97.5%)
+  ;;                 Overhead used : 6.662891 ns
+
+  ;; Saving distances as we go seems to not be of much help. 
+  ;; Serialization to disk is expensive enough to outweigh 
+  ;; the benefit of avoiding recomputation.
+  ;; 
+  ;; If we knew the properties of the disk well enough we could 
+  ;; make an intelligent decision as to whether to serialize as a 
+  ;; function of disk write speed, number of rows, and number of 
+  ;; clusters to find.
+  )
+
+
+
+
+
   ;; (compute-minimum
 
 
