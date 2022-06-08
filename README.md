@@ -23,6 +23,8 @@ the computation cannot be persisted to disk.
    - `:niave`
    - `:k-means-++`
    - `:k-means-parallel`
+   - `:k-mc-squared`
+
 
    If you would prefer a different initialization scheme, you 
    can provide your own by adding a new `defmethod`.
