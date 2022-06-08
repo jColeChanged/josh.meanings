@@ -15,11 +15,13 @@
    [clojure.tools.logging :as log]
    [tech.v3.dataset.reductions :as ds-reduce]
    [tech.v3.dataset :as ds]
-   [bigml.sampling.reservoir :as res-sample]
    [clojure.string])
   (:use
    [josh.meanings.persistence :as persist]
    [josh.meanings.distances :as distances]
+   [josh.meanings.initializations.utils]
+   [josh.meanings.initializations.core]
+   [josh.meanings.initializations.mc2]
    [clojure.java.io :as io]
    [tech.v3.dataset.math :as ds-math]
    [fastmath.vector :as math])
@@ -43,15 +45,16 @@
             format
             init
             distance-key
-            distance-fn])
+            distance-fn
+            m])
 
 
 
 
-(defmulti initialize-centroids
-  "Initializes centroids according to the initialization 
-   method specified in the configuration."
-  :init)
+;;(defmulti initialize-centroids
+;;  "Initializes centroids according to the initialization 
+;;   method specified in the configuration."
+;;  :init)
 
 (defn initialize-centroids!
   [k-means-state]
@@ -73,7 +76,8 @@
   (let [format (or (:format options) default-format)
         init (or (:init options) default-init)
         distance-key (or (:distance-fn options) default-distance-fn)
-        distance-fn (distances/get-distance-fn distance-key)]
+        distance-fn (distances/get-distance-fn distance-key)
+        m (or (:m options) 200)]
     (when (not (contains? persist/formats format))
       (throw (Exception. (str "Invalid format provided. Format must be one of " (keys persist/formats)))))
     (log/debug "Validated k mean options")
@@ -86,7 +90,8 @@
                                            format
                                            init
                                            distance-key
-                                           distance-fn) :points)))
+                                           distance-fn
+                                           m) :points)))
 
 (defn ds-seq->rows->maps
   [ds-seq rows]
@@ -321,18 +326,6 @@
        2))))
 
 
-(defn uniform-sample
-  [ds-seq n]
-  (log/info "Getting uniform sample of size" n)
-  (apply res-sample/merge
-         (map #(res-sample/sample (ds/rowvecs %) n) ds-seq)))
-
-(defn weighted-sample
-  [ds-seq weight-fn n]
-  (log/info "Getting weighted sample of size" n)
-  (apply res-sample/merge
-         (map #(res-sample/sample (ds/rowvecs %) n :weigh weight-fn) ds-seq)))
-
 
 
 (defmethod initialize-centroids
@@ -392,6 +385,8 @@
       k-centroids))
 
   (def state (initialize-k-means-state "test.csv" 7 {:init :k-means-++-2}))
+
+  (def state (initialize-k-means-state "test.csv" 7 {:init :k-means-++-2}))
   (criterium/quick-bench (initialize-centroids state))
   ;; Evaluation count : 6 in 6 samples of 1 calls.
   ;;           Execution time mean : 4.693741 sec
@@ -406,6 +401,16 @@
   ;;  Execution time std-deviation : 38.544768 ms
   ;;  Execution time lower quantile : 4.548982 sec ( 2.5%)
   ;;  Execution time upper quantile : 4.634947 sec (97.5%)
+  ;;                 Overhead used : 6.662891 ns
+  (def state (initialize-k-means-state "test.csv" 5
+                                       {:init :k-mc-squared
+                                        :m 2000}))
+  (criterium/quick-bench  (initialize-centroids state))
+  ;; Evaluation count : 6 in 6 samples of 1 calls.
+  ;;           Execution time mean : 1.379235 sec
+  ;;  Execution time std-deviation : 28.194679 ms
+  ;;  Execution time lower quantile : 1.347164 sec ( 2.5%)
+  ;;  Execution time upper quantile : 1.410568 sec (97.5%)
   ;;                 Overhead used : 6.662891 ns
 
   ;; Saving distances as we go seems to not be of much help. 
