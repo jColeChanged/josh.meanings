@@ -2,7 +2,7 @@
   (:require [bigml.sampling.reservoir :as res-sample]
             [tech.v3.dataset :as ds]
             [clojure.tools.logging :as log]
-            [tech.v3.dataset :as ds])))
+            [josh.meanings.persistence :as persist]))
 
 
 (defn centroids->dataset
