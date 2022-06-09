@@ -64,7 +64,7 @@
 (declare k-means)
 
 (def default-format :parquet)
-(def default-init   :k-means-parallel)
+(def default-init   :afk-mc)
 (def default-distance-fn :emd)
 (def default-run-count 3)
 

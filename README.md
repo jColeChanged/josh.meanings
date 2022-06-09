@@ -24,13 +24,15 @@ the computation cannot be persisted to disk.
    - `:k-means-++`
    - `:k-means-parallel`
    - `:k-mc-squared`
-
+   - `:afk-mc`
 
    If you would prefer a different initialization scheme, you 
    can provide your own by adding a new `defmethod`.
 
    When calling the library the implementation will default to 
-   `k-means-parallel`.
+   `afk-mc`. If you aren't familiar with this, it is an initialization 
+   scheme that approximates k-means++ without requiring assumptions 
+   about the data using monte carlo markov chain sampling.
 
  - Assumes that datasets will be larger than memory, but smaller 
    than disk. Callers must provide a reference to the file which 
