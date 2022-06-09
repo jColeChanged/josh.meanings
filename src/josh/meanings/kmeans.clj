@@ -49,15 +49,9 @@
             init
             distance-key
             distance-fn
-            m])
+            m
+            k-means])
 
-
-
-
-;;(defmulti initialize-centroids
-;;  "Initializes centroids according to the initialization 
-;;   method specified in the configuration."
-;;  :init)
 
 (defn initialize-centroids!
   [k-means-state]
@@ -66,6 +60,8 @@
     centroids))
 
 
+
+(declare k-means)
 
 (def default-format :parquet)
 (def default-init   :k-means-parallel)
@@ -94,7 +90,8 @@
                                            init
                                            distance-key
                                            distance-fn
-                                           m) :points)))
+                                           m
+                                           k-means) :points)))
 
 (defn ds-seq->rows->maps
   [ds-seq rows]
@@ -289,67 +286,6 @@
   "Returns a lazy sequence of m ClusterResult."
   [dataset k m & options]
   (repeatedly m #(apply k-means dataset m k options)))
-
-
-;; Initializations 
-(defn shortest-distance-*
-  "Denotes the shortest distance from a data point to a 
-   center. Which distance to use is decided by the k means 
-   configuration."
-  [^KMeansState configuration]
-  (let [distance-fn (:distance-fn configuration)]
-    (fn [point centroids]
-      (apply min (map #(distance-fn point %) centroids)))))
-
-
-(defn shortest-distance
-  "Returns the shortest distance to a point."
-  ([distance-fn point points]
-   (apply min (map (partial distance-fn point) points)))
-  ([distance-fn point points previous-distance]
-   (if (zero? previous-distance)
-     previous-distance
-     (min previous-distance (shortest-distance distance-fn point points)))))
-
-
-(defn compute-minimum
-  "Computes a new minimum distance for ds."
-  [^KMeansState configuration ds centroids]
-  (ds/column-map ds "dist"
-                 (fn [& cols]
-                   (shortest-distance (:distance-fn configuration) (butlast cols) centroids (last cols)))))
-
-
-(defn k-means-++-weight
-  [configuration centroids]
-  (let [shortest-distance (shortest-distance-* configuration)]
-    (fn [point]
-      (Math/pow
-       (shortest-distance point centroids)
-       2))))
-
-
-
-
-(defmethod initialize-centroids
-  :k-means-parallel
-  [k-means-state]
-  (log/info "Performing k means parallel initialization")
-  (let [ds-seq (persist/read-dataset-seq k-means-state :points)
-        k (:k k-means-state)
-        oversample-factor (* 2 k)
-        iterations 5
-        rows->maps (partial ds-seq->rows->maps ds-seq)]
-    (loop [i 0
-           centers (uniform-sample ds-seq 1)]
-      (if (= i iterations)
-        (do
-          (log/info "Finished oversampling. Reducing to k centroids")
-          (:centroids (k-means (rows->maps centers) k :init :k-means-++ :distance-fn (:distance-key k-means-state))))
-        (recur (inc i) (concat centers
-                               (weighted-sample ds-seq
-                                                (k-means-++-weight k-means-state centers)
-                                                oversample-factor)))))))
 
 
 ;; When making changes its useful to be able to get a sense of how the change
