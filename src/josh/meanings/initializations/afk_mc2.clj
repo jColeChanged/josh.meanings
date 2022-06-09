@@ -14,6 +14,7 @@
    for itself by reducing the chain length necessary to get convergence 
    guarantees."
   (:require
+   [tech.v3.dataset :as ds]
    [clojure.tools.logging :as log]
    [josh.meanings.persistence :as p])
   (:use
@@ -37,28 +38,29 @@
   "Computes the q(x) distribution for all x in the dataset."
   [conf cluster]
   (log/info "Computing q(x) distribution with respect to " cluster)
-  (let [dx-squared (comp square (partial (:distance-fn conf cluster)))
-        regularization-term (/ 1 (* 2 (reduce + (map count (p/read-dataset-seq conf :points)))))
+  (let [dx-squared (comp square (partial (:distance-fn conf) cluster))
+        regularization-term (/ 1 (* 2 (reduce + (map ds/row-count (p/read-dataset-seq conf :points)))))
         d2-sum (->> (p/read-dataset-seq conf :points)
-                    (map dx-squared)
+                    (map ds/rowvecs)
+                    (map (partial map dx-squared))
                     (map (partial reduce +))
                     (reduce +))
         ;; instead of multiplying 1/2 by each refactoring the /2 into true-d2
         doubled-d2-sum (* 2 d2-sum)
-        qx #(+ (/ (dx-squared %) doubled-d2-sum) regularization-term)]
+        qx (fn [& cols] (+ (/ (dx-squared cols) doubled-d2-sum) regularization-term))]
     (p/write-dataset-seq conf :points
                          (->> (p/read-dataset-seq conf :points)
-                              (map #(ds/column-map "q(x)" % qx))))))
+                              (map #(ds/column-map % "q(x)" qx))))))
 
 (defn- cleanup-q-of-x
   "Removes q(x) distribution for all x in the dataset."
   [conf]
   (p/write-dataset-seq conf :points
-                        (->> (p/read-dataset-seq conf :points)
-                             (map #(dissoc % "q(x)")))))
-  
+                       (->> (p/read-dataset-seq conf :points)
+                            (map #(dissoc % "q(x)")))))
 
-    
+
+
 ;; In the paper they formulate sampling such that sampling is carried out 
 ;; one weighted sample at a time. I'm not going to do that. Instead I'm going 
 ;; to get one large sample. Doing this means we won't be doing both the CPU 
@@ -76,8 +78,8 @@
   [distance-fn c rsp]
   (loop [points (map point rsp)                         ;; the points 
          dyqyseq  (map *                                ;; d(c, y) * q(y)
-                 (map (partial distance-fn c) points)   
-                 (map qx rsp))                         
+                       (map (partial distance-fn c) points)
+                       (map qx rsp))
          rands (repeatedly (count points) rand)         ;; Unif(0, 1)
          x (first points)                               ;; x
          dxqx (first dyqyseq)]                          ;; d(c, x) * q(x)
@@ -96,15 +98,18 @@
   [conf]
   (log/info "Performing afk-mc initialization")
   (log/info "Sampling cluster from dataset for initial centroid choice")
-  (let [cluster (point (first (uniform-sample (p/read-dataset-seq conf :points) 1)))]
-    (log/info "Got initial cluster" c)
+  (let [cluster (first (uniform-sample (p/read-dataset-seq conf :points) 1))]
+    (log/info "Got initial cluster" cluster)
     (q-of-x conf cluster)
     (let [k (:k conf)   ;; number of clusters
           m (:m conf)   ;; markov chain length
-          sp (samples (p/read-dataset-seq conf :points) k m)]
-      (loop [c cluster cs [cluster] rsp (rest sp)]
-        (log/info "Performing round of mcmc sampling")
-        (if (empty? rsp)
-          cs
-          (let [nc (mcmc-sample (:distance-fn conf) c (take m rsp))]
-            (recur nc (conj cs nc) (drop m rsp))))))))
+          sp (samples (p/read-dataset-seq conf :points) k m)
+          clusters
+          (loop [c cluster cs [cluster] rsp sp]
+            (log/info "Performing round of mcmc sampling")
+            (if (empty? rsp)
+              cs
+              (let [nc (mcmc-sample (:distance-fn conf) c (take m rsp))]
+                (recur nc (conj cs nc) (drop m rsp)))))]
+      (cleanup-q-of-x conf)
+      clusters)))

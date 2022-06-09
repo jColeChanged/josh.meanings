@@ -413,6 +413,19 @@
   ;;  Execution time upper quantile : 1.410568 sec (97.5%)
   ;;                 Overhead used : 6.662891 ns
 
+  (def state (initialize-k-means-state "test.csv" 5
+                                       {:init :afk-mc
+                                        :m 20}))
+  (criterium/quick-bench (initialize-centroids state))
+  ;; Evaluation count : 6 in 6 samples of 1 calls.
+  ;;            Execution time mean : 1.107338 sec
+  ;;   Execution time std-deviation : 21.462398 ms
+  ;;  Execution time lower quantile : 1.084057 sec ( 2.5%)
+  ;;  Execution time upper quantile : 1.131066 sec (97.5%)
+  ;;                  Overhead used : 6.708408 ns
+
+
+
   ;; Saving distances as we go seems to not be of much help. 
   ;; Serialization to disk is expensive enough to outweigh 
   ;; the benefit of avoiding recomputation.
