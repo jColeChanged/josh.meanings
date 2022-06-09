@@ -58,8 +58,8 @@
          (if take (first ps)    x)
          (if take (first dseq) dx))))))
 
-(defmethod initialize-centroids
-  :k-mc-squared
+
+(defn- k-means-mc-2-initialization
   [conf]
   (log/info "Performing k-mc^2 initialization")
   (let [k (:k conf)   ;; number of clusters
@@ -72,4 +72,8 @@
         (let [nc (mcmc-sample (:distance-fn conf) c (take m rsp))]
           (recur nc (conj cs nc) (drop m rsp)))))))
 
+(defmethod initialize-centroids
+  :k-mc-squared
+  [conf]
+  (centroids->dataset conf (k-means-mc-2-initialization conf)))
 
