@@ -21,69 +21,90 @@
    [josh.meanings.initializations.utils]))
 
 
-(defn square [x] (* x x))
 
-(defn q-of-x
+(defn- square [x] (* x x))
+
+
+(defn- point
+  [row]
+  (butlast row))
+
+(defn- qx
+  [row]
+  (last row))
+
+(defn- q-of-x
   "Computes the q(x) distribution for all x in the dataset."
   [conf cluster]
+  (log/info "Computing q(x) distribution with respect to " cluster)
   (let [dx-squared (comp square (partial (:distance-fn conf cluster)))
         regularization-term (/ 1 (* 2 (reduce + (map count (p/read-dataset-seq conf :points)))))
         d2-sum (->> (p/read-dataset-seq conf :points)
-                 (map dx-squared)
-                 (map (partial reduce +))
-                 (reduce +))
+                    (map dx-squared)
+                    (map (partial reduce +))
+                    (reduce +))
         ;; instead of multiplying 1/2 by each refactoring the /2 into true-d2
         doubled-d2-sum (* 2 d2-sum)
-        qx #(+ (/ (dx-squared %) doubled-d2-sum) regularization-term)
+        qx #(+ (/ (dx-squared %) doubled-d2-sum) regularization-term)]
+    (p/write-dataset-seq conf :points
+                         (->> (p/read-dataset-seq conf :points)
+                              (map #(ds/column-map "q(x)" % qx))))))
+
+(defn- cleanup-q-of-x
+  "Removes q(x) distribution for all x in the dataset."
+  [conf]
+  (p/write-dataset-seq conf :points
+                        (->> (p/read-dataset-seq conf :points)
+                             (map #(dissoc % "q(x)")))))
+  
 
     
-
 ;; In the paper they formulate sampling such that sampling is carried out 
-;; one uniform sample at a time. I'm not going to do that. Instead I'm going 
-;; to get one large sample as my first step. Doing this means we won't be 
-;; doing both the CPU intensive and disk intensive parts of our algorithm 
-;; at the same time.
+;; one weighted sample at a time. I'm not going to do that. Instead I'm going 
+;; to get one large sample. Doing this means we won't be doing both the CPU 
+;; intensive and disk intensive parts of our algorithm at the same time.
 (defn- samples
   "Get all the samples we'll need for the markov chain."
   [ds-seq k m]
-  ;; 1 initial cluster, (k - 1) remaining clusters, each of which need 
-  ;; to generate a markov chain of length m
-  (uniform-sample ds-seq (+ 1 (* (- k 1) m))))
+  (log/info "Sampling with respect to q(x)")
+  (let [sample-count (* (- k 1) m)]
+    (weighted-sample ds-seq qx sample-count)))
 
-(defn- square
-  [x]
-  (* x x))
 
 (defn- mcmc-sample
   "Perform markov chain monte carlo sampling to approxiate D^2 sampling"
   [distance-fn c rsp]
-  (loop [ps rsp
-         dseq (map square (map (partial distance-fn c) rsp))
-         rands (repeatedly (count rsp) rand)
-         x (first ps)
-         dx (first dseq)]
-    (if (empty? ps)
+  (loop [points (map point rsp)                         ;; the points 
+         dyqyseq  (map *                                ;; d(c, y) * q(y)
+                 (map (partial distance-fn c) points)   
+                 (map qx rsp))                         
+         rands (repeatedly (count points) rand)         ;; Unif(0, 1)
+         x (first points)                               ;; x
+         dxqx (first dyqyseq)]                          ;; d(c, x) * q(x)
+    (if (empty? points)
       x
-      (let [take (or (zero? dx) (> (/ (first dseq) dx) (first rands)))]
+      (let [take (or (zero? dxqx) (> (/ (first dyqyseq) dxqx) (first rands)))]
         (recur
-         (rest ps)
-         (rest dseq)
+         (rest points)
+         (rest dyqyseq)
          (rest rands)
-         (if take (first ps)    x)
-         (if take (first dseq) dx))))))
+         (if take (first points) x)
+         (if take (first dyqyseq) dxqx))))))
 
 (defmethod initialize-centroids
   :afk-mc
   [conf]
-  (log/info "Performing k-mc^2 initialization")
-  (let [k (:k conf)   ;; number of clusters
-        m (:m conf)   ;; markov chain length
-        sp (samples (p/read-dataset-seq conf :points) k m)]
-    (loop [c (first sp) cs [c] rsp (rest sp)]
-      (log/info "Performing round of mcmc sampling")
-      (if (empty? rsp)
-        cs
-        (let [nc (mcmc-sample (:distance-fn conf) c (take m rsp))]
-          (log/info "Found nc" nc)
-          (recur nc (conj cs nc) (drop m rsp)))))))
-
+  (log/info "Performing afk-mc initialization")
+  (log/info "Sampling cluster from dataset for initial centroid choice")
+  (let [cluster (point (first (uniform-sample (p/read-dataset-seq conf :points) 1)))]
+    (log/info "Got initial cluster" c)
+    (q-of-x conf cluster)
+    (let [k (:k conf)   ;; number of clusters
+          m (:m conf)   ;; markov chain length
+          sp (samples (p/read-dataset-seq conf :points) k m)]
+      (loop [c cluster cs [cluster] rsp (rest sp)]
+        (log/info "Performing round of mcmc sampling")
+        (if (empty? rsp)
+          cs
+          (let [nc (mcmc-sample (:distance-fn conf) c (take m rsp))]
+            (recur nc (conj cs nc) (drop m rsp))))))))
