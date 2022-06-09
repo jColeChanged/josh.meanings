@@ -92,7 +92,10 @@
       (log/info "Conversion completed"))
     new-state))
 
-
+(defn ds-seq->rows->maps
+  [ds-seq rows]
+  (let [column-names (persist/dataset-seq->column-names ds-seq)]
+    (map #(zipmap column-names %) rows)))
 
 (defn file?
   "Returns true if a file exists and false otherwise."
