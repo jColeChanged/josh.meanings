@@ -15,3 +15,24 @@
   (apply res-sample/merge
          (map #(res-sample/sample (ds/rowvecs %) n :weigh weight-fn) ds-seq)))
 
+
+(defn shortest-distance-*
+  "Denotes the shortest distance from a data point to a 
+   center. Which distance to use is decided by the k means 
+   configuration."
+  [configuration]
+  (let [distance-fn (:distance-fn configuration)]
+    (fn [point centroids]
+      (apply min (map #(distance-fn point %) centroids)))))
+
+(defn shortest-distance-squared-*
+  "Denotes the shortest distance from a data point to a 
+   center squared. Useful for computing a D^2 sampling 
+   distribution."
+  [configuration centroids]
+  (let [shortest-distance (shortest-distance-* configuration)]
+    (fn [point]
+      (Math/pow
+       (shortest-distance point centroids)
+       2))))
+
