@@ -4,16 +4,17 @@
    complete in O(n + k*d) time and only takes O(k*d) space."
   (:require
    [clojure.tools.logging :as log]
-   [josh.meanings.persistence :as persist]
-   [tech.v3.dataset :as ds])
+   [josh.meanings.persistence :as persist])
   (:use
    [josh.meanings.initializations.core]
    [josh.meanings.initializations.utils]))
 
+(defn- niave-initialization
+  [k-means-state]
+  (log/info "Performing classical (naive) k means initialization")
+  (uniform-sample (persist/read-dataset-seq k-means-state :points) (:k k-means-state)))
+
 (defmethod initialize-centroids
   :niave
   [k-means-state]
-  (log/info "Performing classical (naive) k means initialization")
-  (let [k (:k k-means-state)
-        rows->maps (partial persist/ds-seq->rows->maps (persist/read-dataset-seq k-means-state :points))]
-    (ds/->dataset (rows->maps (uniform-sample (persist/read-dataset-seq k-means-state :points) k)))))
+  (centroids->dataset k-means-state (niave-initialization k-means-state)))

@@ -1,7 +1,17 @@
 (ns josh.meanings.initializations.utils
   (:require [bigml.sampling.reservoir :as res-sample]
             [tech.v3.dataset :as ds]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log]
+            [tech.v3.dataset :as ds])))
+
+
+(defn centroids->dataset
+  [conf results]
+  (ds/->dataset
+   (persist/ds-seq->rows->maps
+    (persist/read-dataset-seq conf :points)
+    results)))
+
 
 (defn uniform-sample
   [ds-seq n]

@@ -70,7 +70,6 @@
       (if (empty? rsp)
         cs
         (let [nc (mcmc-sample (:distance-fn conf) c (take m rsp))]
-          (log/info "Found nc" nc)
           (recur nc (conj cs nc) (drop m rsp)))))))
 
 
