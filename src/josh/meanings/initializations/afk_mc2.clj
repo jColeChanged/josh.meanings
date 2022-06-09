@@ -93,8 +93,7 @@
          (if take (first points) x)
          (if take (first dyqyseq) dxqx))))))
 
-(defmethod initialize-centroids
-  :afk-mc
+(defn- k-means-assumption-free-mc-initialization
   [conf]
   (log/info "Performing afk-mc initialization")
   (log/info "Sampling cluster from dataset for initial centroid choice")
@@ -113,3 +112,8 @@
                 (recur nc (conj cs nc) (drop m rsp)))))]
       (cleanup-q-of-x conf)
       clusters)))
+
+(defmethod initialize-centroids
+  :afk-mc
+  [conf]
+  (centroids->dataset conf (k-means-assumption-free-mc-initialization conf)))
