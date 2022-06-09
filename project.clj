@@ -1,4 +1,4 @@
-(defproject org.clojars.joshua/josh.meanings "0.1.4-SNAPSHOT"
+(defproject org.clojars.joshua/josh.meanings "0.1.5-SNAPSHOT"
   :description "Clojure implementation of larger than memory K-Means clustering."
   :url "https://github.com/jcolechanged/josh.meanings"
   :license {:name "The MIT License"
@@ -23,8 +23,7 @@
                  [org.apache.hadoop/hadoop-mapreduce-client-core  "3.3.0"
                   :exclusions [org.slf4j/slf4j-log4j12]]
                  [org.clojars.joshua/sampling "3.3"]
-                 [criterium "0.4.6"]
-                 ]
+                 [criterium "0.4.6"]]
   :main josh.meanings.core
   :jvm-opts ["-Xmx2g"]
   :repl-options {:init-ns josh.meanings.core})

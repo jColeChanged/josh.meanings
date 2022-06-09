@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 
+## [0.1.5] - 2022-06-08
+
+ - Now support the mc^2 initialization method.
+ - Now support the afk mc^2 initialization method.
+ 
 ## [0.1.4] - 2022-05-28
 
  - Default calling convention now runs multiple instances of k means 
