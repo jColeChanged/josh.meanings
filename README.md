@@ -71,7 +71,7 @@ the computation cannot be persisted to disk.
    that could use further improvement, since right now the tests are for 
    the happy path - the default number of runs, init, and format.
 
- - Which distance function should is left up to a multimethod protocol 
+ - Which distance function should be used is left up to a multimethod protocol 
    that will dispatch based on the `:distance-fn` key. Special care 
    should be taken when choosing non-euclidean distances, because k-means 
    is not guaranteed to converge or stabilize with arbitrary distance 
