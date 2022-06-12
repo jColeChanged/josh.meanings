@@ -7,14 +7,14 @@ that which is sought. Meaning, the latent concept vector that
 does not vary even though the words which express it might. 
 This library though? The central idea behind it is to provide 
 you a means of finding means so that you might come to know 
-meanings through the process of repeatedly calculating means.
+meanings through the process of repeatedly calculating means. 
 
-This is a program for computing `k-means` in Clojure. 
+This is a program for computing k-means in Clojure. 
 It is built to handle workloads which involve datasets 
 which are too large to fit in memory, but not so large that 
-the computation cannot be persisted to disk.
+the computation cannot be persisted to disk. 
 
-## Technical Details (God willing)
+## Technical Details
 
  - Initialization is implemented as a multimethod whose 
    dispatch is chosen by the `:init` keyword. The following 
@@ -30,24 +30,15 @@ the computation cannot be persisted to disk.
    can provide your own by adding a new `defmethod`.
 
    When calling the library the implementation will default to 
-   `afk-mc`. If you aren't familiar with this, it is an initialization 
-   scheme that approximates k-means++ without requiring assumptions 
-   about the data using monte carlo markov chain sampling.
+   `afk-mc` which is the assumption free approximation of 
+   `k-means-++`. 
 
- - Assumes that datasets will be larger than memory, but smaller 
-   than disk. Callers must provide a reference to the file which 
-   contains the dataset or a lazy sequence so that the dataset is 
+ - This library assumes that datasets will be medium data - larger than 
+   memory, but smaller than disk. Callers must provide a reference to the 
+   file which contains the dataset or a lazy sequence so that the dataset is 
    never fully realized in memory. The library leverages 
    `techascent.ml.dataset` to handle dataset serialization and 
    deserialization.
-
-   The following input formats are accepted:
-
-    - Lazy sequences
-    - CSV files
-    - Arrow files
-    - Arrow streams
-    - Parquet
 
    Some file types aren't well suited to high performance 
    serialization and deserialization. The `:format` keyword controls 
@@ -60,8 +51,6 @@ the computation cannot be persisted to disk.
     - `:parquet`
 
    By default the `:parquet` format will be used.
-
- - [ ] Uses neanderthal to speed up matrix math.
   
  - Though it is possible to run k means a single time this is not 
    recommended. In general, k means doesn't find the globally optimal 
@@ -87,24 +76,3 @@ the computation cannot be persisted to disk.
    should be taken when choosing non-euclidean distances, because k-means 
    is not guaranteed to converge or stabilize with arbitrary distance 
    functions.
-
-## Usage
-
-You can input data using either:
-
-```
-lein run -- --input input.csv --k 5
-```
-
-Or alternatively you can pass in an arrow file.
-
-```
-lein run -- --input input.arrow --k 5
-```
-
-After execution you will be left with several files. The 
-history.input.csv file will contain information about training 
-runs like the number of iterations that were performed. 
-assignments.input.arrow which will contain the assingments for 
-each points. Finally, centroids.input.csv with which you can 
-use for the purpose of classification.
