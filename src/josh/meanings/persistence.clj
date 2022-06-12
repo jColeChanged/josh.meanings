@@ -94,7 +94,7 @@
 
 (defn ds-seq->rows->maps
   [ds-seq rows]
-  (let [column-names (persist/dataset-seq->column-names ds-seq)]
+  (let [column-names (dataset-seq->column-names ds-seq)]
     (map #(zipmap column-names %) rows)))
 
 (defn file?

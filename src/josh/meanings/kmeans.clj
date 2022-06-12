@@ -24,7 +24,7 @@
    [josh.meanings.initializations.mc2]
    [josh.meanings.initializations.afk]
    [josh.meanings.initializations.plusplus]
-   [josh.meanings.initializations.naive]
+   [josh.meanings.initializations.niave]
    [clojure.java.io :as io]
    [tech.v3.dataset.math :as ds-math]
    [fastmath.vector :as math])
@@ -93,10 +93,7 @@
                                            m
                                            k-means) :points)))
 
-(defn ds-seq->rows->maps
-  [ds-seq rows]
-  (let [column-names (persist/dataset-seq->column-names ds-seq)]
-    (map #(zipmap column-names %) rows)))
+
 
 (defn find-closest-centroid
   [^KMeansState configuration]
