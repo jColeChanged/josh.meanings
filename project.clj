@@ -26,4 +26,6 @@
                  [criterium "0.4.6"]]
   :main josh.meanings.core
   :jvm-opts ["-Xmx2g"]
-  :repl-options {:init-ns josh.meanings.core})
+  :repl-options {:init-ns josh.meanings.core}
+  :deploy-repositories [["releases" :clojars]
+                        ["snapshots" :clojars]])
