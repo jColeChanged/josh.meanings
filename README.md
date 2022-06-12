@@ -2,6 +2,8 @@
 
 [![CircleCI](https://circleci.com/gh/jColeChanged/josh.meanings.svg?style=shield&circle-token=a4b905e7d28f1f397566185359251b3d7d959818)](https://app.circleci.com/pipelines/github/jColeChanged/josh.meanings?filter=main)
 
+[![Clojars Project](https://img.shields.io/clojars/v/org.clojars.joshua/josh.meanings.svg)](https://clojars.org/org.clojars.joshua/josh.meanings)
+
 A mean is a center of points. A means, a way of accomplishing 
 that which is sought. Meaning, the latent concept vector that 
 does not vary even though the words which express it might. 
@@ -13,6 +15,10 @@ This is a program for computing k-means in Clojure.
 It is built to handle workloads which involve datasets 
 which are too large to fit in memory, but not so large that 
 the computation cannot be persisted to disk. 
+
+# Installation
+
+[![Clojars Project](https://img.shields.io/clojars/v/org.clojars.joshua/josh.meanings.svg)](https://clojars.org/org.clojars.joshua/josh.meanings)
 
 ## Technical Details
 
