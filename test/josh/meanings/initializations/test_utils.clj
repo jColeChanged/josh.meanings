@@ -11,7 +11,7 @@
 
 (defn gen-dataset-seq
   [dimensions block-size num-blocks]
-  (let [gen-ds-row (gen/vector gen/large-integer dimensions)
+  (let [gen-ds-row (gen/vector gen/nat dimensions)
         gen-ds-block (gen/vector gen-ds-row block-size)
         ds-seq-rows (gen/sample gen-ds-block num-blocks)
         row->map (partial zipmap (range dimensions))
@@ -47,14 +47,14 @@
                  blocks (gen/fmap make-positive gen/small-integer)
                  num-samples (gen/fmap make-positive gen/small-integer)]
                 (let [ds-seq (gen-dataset-seq dims block-size blocks)]
-                  (= (count (utils/weighted-sample ds-seq (comp make-positive first) num-samples :replace true))
+                  (= (count (utils/weighted-sample ds-seq first num-samples :replace true))
                      num-samples))))
 
 (defspec ws-size-lte-to-ds-size-wo-r 100
-  (prop/for-all [dims (gen/such-that pos? gen/small-integer)
-                 block-size (gen/such-that pos? gen/small-integer)
-                 blocks (gen/such-that pos? gen/small-integer)
-                 num-samples (gen/such-that pos? gen/small-integer)]
+  (prop/for-all [dims (gen/fmap make-positive gen/small-integer)
+                 block-size (gen/fmap make-positive gen/small-integer)
+                 blocks (gen/fmap make-positive gen/small-integer)
+                 num-samples (gen/fmap make-positive gen/small-integer)]
                 (let [ds-seq (gen-dataset-seq dims block-size blocks)]
-                  (<= (count (utils/weighted-sample ds-seq (comp make-positive first) num-samples :replace false))
+                  (<= (count (utils/weighted-sample ds-seq first num-samples :replace false))
                       (* block-size blocks)))))
