@@ -281,8 +281,8 @@
 
 (defn k-means-seq
   "Returns a lazy sequence of m ClusterResult."
-  [dataset k m & options]
-  (repeatedly m #(apply k-means dataset m k options)))
+  [dataset k & options]
+  (repeatedly #(apply k-means dataset k options)))
 
 
 ;; When making changes its useful to be able to get a sense of how the change
@@ -292,4 +292,3 @@
 (comment
   (require '[criterium.core :as criterium])
   (criterium/quick-bench ...))
-

@@ -30,7 +30,7 @@
   [ds-seq k m]
   ;; 1 initial cluster, (k - 1) remaining clusters, each of which need 
   ;; to generate a markov chain of length m
-  (uniform-sample ds-seq (+ 1 (* (- k 1) m))))
+  (uniform-sample ds-seq (+ 1 (* (- k 1) m)) :replace true))
 
 (defn- square
   [x]

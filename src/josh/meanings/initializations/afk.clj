@@ -37,7 +37,7 @@
 (defn- q-of-x
   "Computes the q(x) distribution for all x in the dataset."
   [conf cluster]
-  (log/info "Computing q(x) distribution with respect to " cluster)
+  (log/info "Computing q(x) distribution with respect to" cluster)
   (let [dx-squared (comp square (partial (:distance-fn conf) cluster))
         regularization-term (/ 1 (* 2 (reduce + (map ds/row-count (p/read-dataset-seq conf :points)))))
         d2-sum (->> (p/read-dataset-seq conf :points)
@@ -70,7 +70,7 @@
   [ds-seq k m]
   (log/info "Sampling with respect to q(x)")
   (let [sample-count (* (- k 1) m)]
-    (weighted-sample ds-seq qx sample-count)))
+    (weighted-sample ds-seq qx sample-count :replace true)))
 
 
 (defn- mcmc-sample
