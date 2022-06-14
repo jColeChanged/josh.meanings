@@ -14,6 +14,7 @@
    for itself by reducing the chain length necessary to get convergence 
    guarantees."
   (:require
+   [clojure.spec.alpha :as s]
    [tech.v3.dataset :as ds]
    [clojure.tools.logging :as log]
    [josh.meanings.persistence :as p])
@@ -68,8 +69,10 @@
 (defn- samples
   "Get all the samples we'll need for the markov chain."
   [ds-seq k m]
+  {:pre [(pos? m) (seq? ds-seq) (pos? k)]
+   :post [(= (* (dec k) m) (count %))]}
   (log/info "Sampling with respect to q(x)")
-  (let [sample-count (* (- k 1) m)]
+  (let [sample-count (* (dec k) m)]
     (weighted-sample ds-seq qx sample-count :replace true)))
 
 
@@ -95,6 +98,8 @@
 
 (defn- k-means-assumption-free-mc-initialization
   [conf]
+  {:pre [(contains? conf :m) (contains? conf :k) (contains? conf :distance-fn)]
+   :post [(= (:k conf) (count %))]}
   (log/info "Performing afk-mc initialization")
   (log/info "Sampling cluster from dataset for initial centroid choice")
   (let [cluster (first (uniform-sample (p/read-dataset-seq conf :points) 1))]
