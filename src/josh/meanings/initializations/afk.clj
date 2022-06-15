@@ -23,17 +23,45 @@
    [josh.meanings.initializations.utils]))
 
 
-
+(s/def ::number number?)
+(s/fdef square :args [::number] :ret ::number)
 (defn- square [x] (* x x))
 
 
-(defn- point
-  [row]
-  (butlast row))
+(s/def ::point (s/coll-of ::number :min-count 1))
+(s/def ::row (s/coll-of ::number :min-count 2))
+(s/fdef point :args [::row] :ret ::point)
+(defn- point [row] (butlast row))
 
-(defn- qx
-  [row]
-  (last row))
+(s/def ::distance (s/and ::number (s/or :pos pos? :zero zero?)))
+(s/fdef qx :args [::row] :ret ::distance)
+(defn- qx [row] (last row))
+
+(s/def ::cluster-count pos-int?)
+(s/def ::chain-length pos-int?)
+(s/def ::sample-count pos-int?)
+(s/fdef sampled-needed 
+  :args [::cluster-count ::chain-length]
+  :ret ::sample-count)
+(defn samples-needed [^long k ^long m] (* (dec k) m))
+
+;; In the paper they formulate sampling such that sampling is carried out 
+;; one weighted sample at a time. I'm not going to do that. Instead I'm going 
+;; to get one large sample. Doing this means we won't be doing both the CPU 
+;; intensive and disk intensive parts of our algorithm at the same time.
+(s/def ::rows (s/coll-of ::row))
+(s/def ::dataset ds/dataset?)
+(s/def ::dataset-seq (s/coll-of ::dataset))
+(s/fdef samples 
+  :args [::dataset-seq ::cluster-count ::chain-length]
+  :ret ::rows)
+(defn- samples
+  "Get all the samples we'll need for the markov chain."
+  [ds-seq ^long k ^long m]
+  {:post [(= (samples-needed k m) (count %))]}
+  (log/info "Sampling with respect to q(x)")
+  (let [sample-count (samples-needed k m)]
+    (weighted-sample ds-seq qx sample-count :replace true)))
 
 (defn- q-of-x
   "Computes the q(x) distribution for all x in the dataset."
@@ -62,18 +90,7 @@
 
 
 
-;; In the paper they formulate sampling such that sampling is carried out 
-;; one weighted sample at a time. I'm not going to do that. Instead I'm going 
-;; to get one large sample. Doing this means we won't be doing both the CPU 
-;; intensive and disk intensive parts of our algorithm at the same time.
-(defn- samples
-  "Get all the samples we'll need for the markov chain."
-  [ds-seq k m]
-  {:pre [(pos? m) (seq? ds-seq) (pos? k)]
-   :post [(= (* (dec k) m) (count %))]}
-  (log/info "Sampling with respect to q(x)")
-  (let [sample-count (* (dec k) m)]
-    (weighted-sample ds-seq qx sample-count :replace true)))
+
 
 
 (defn- mcmc-sample
