@@ -23,38 +23,31 @@
    [josh.meanings.initializations.utils]))
 
 
-(s/def ::number number?)
-(s/fdef square :args [::number] :ret ::number)
+(s/fdef square :args [:josh.meanings.specs/number] :ret :josh.meanings.specs/number)
 (defn- square [x] (* x x))
 
 
-(s/def ::point (s/coll-of ::number :min-count 1))
-(s/def ::row (s/coll-of ::number :min-count 2))
-(s/fdef point :args [::row] :ret ::point)
+(s/fdef point :args [:josh.meanings.specs/row] :ret :josh.meanings.specs/point)
 (defn- point [row] (butlast row))
 
-(s/def ::distance (s/and ::number (s/or :pos pos? :zero zero?)))
-(s/fdef qx :args [::row] :ret ::distance)
+(s/fdef qx :args [:josh.meanings.specs/row] :ret :josh.meanings.specs/distance)
 (defn- qx [row] (last row))
 
-(s/def ::cluster-count pos-int?)
-(s/def ::chain-length pos-int?)
-(s/def ::sample-count pos-int?)
+
 (s/fdef sampled-needed 
-  :args [::cluster-count ::chain-length]
-  :ret ::sample-count)
+  :args [:josh.meanings.specs/cluster-count :josh.meanings.specs/chain-length]
+  :ret :josh.meanings.core/sample-count)
 (defn samples-needed [^long k ^long m] (* (dec k) m))
 
 ;; In the paper they formulate sampling such that sampling is carried out 
 ;; one weighted sample at a time. I'm not going to do that. Instead I'm going 
 ;; to get one large sample. Doing this means we won't be doing both the CPU 
 ;; intensive and disk intensive parts of our algorithm at the same time.
-(s/def ::rows (s/coll-of ::row))
-(s/def ::dataset ds/dataset?)
-(s/def ::dataset-seq (s/coll-of ::dataset))
 (s/fdef samples 
-  :args [::dataset-seq ::cluster-count ::chain-length]
-  :ret ::rows)
+  :args [:josh.meanings.specs/dataset-seq 
+         :josh.meanings.specs/cluster-count
+         :josh.meanings.specs/chain-length]
+  :ret :josh.meanings.specs/rows)
 (defn- samples
   "Get all the samples we'll need for the markov chain."
   [ds-seq ^long k ^long m]
