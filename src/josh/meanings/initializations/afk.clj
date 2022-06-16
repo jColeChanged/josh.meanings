@@ -17,8 +17,7 @@
    [clojure.spec.alpha :as s]
    [tech.v3.dataset :as ds]
    [clojure.tools.logging :as log]
-   [josh.meanings.persistence :as p]
-   [clojure.spec.test.alpha :as stest])
+   [josh.meanings.persistence :as p])
   (:use
    [josh.meanings.specs]
    [josh.meanings.initializations.core]
@@ -59,6 +58,10 @@
   (let [sample-count (samples-needed k m)]
     (weighted-sample ds-seq qx sample-count :replace true)))
 
+(s/fdef q-of-x 
+        :args (s/cat 
+               :conf :josh.meanings.specs/configuration 
+               :cluster :josh.meanings.specs/point))
 (defn- q-of-x
   "Computes the q(x) distribution for all x in the dataset."
   [conf cluster]
@@ -77,6 +80,7 @@
                          (->> (p/read-dataset-seq conf :points)
                               (map #(ds/column-map % "q(x)" qx))))))
 
+(s/fdef q-of-x :args (s/cat :conf :josh.meanings.specs/configuration))
 (defn- cleanup-q-of-x
   "Removes q(x) distribution for all x in the dataset."
   [conf]
@@ -85,10 +89,11 @@
                             (map #(dissoc % "q(x)")))))
 
 
-
-
-
-
+(s/fdef mcmc-sample 
+        :args (s/cat :distance-fn ifn? 
+                     :c :josh.meanings.specs/point
+                     :rsp :josh.meanings.specs/rows)
+        :ret :josh.meanings.specs/point)
 (defn- mcmc-sample
   "Perform markov chain monte carlo sampling to approxiate D^2 sampling"
   [distance-fn c rsp]
@@ -109,6 +114,9 @@
          (if take (first points) x)
          (if take (first dyqyseq) dxqx))))))
 
+(s/fdef k-means-assumption-free-mc-initialization
+  :args (s/cat :conf :josh.meanings.specs/configuration)
+  :ret :josh.meanings.specs/points)
 (defn- k-means-assumption-free-mc-initialization
   [conf]
   {:pre [(contains? conf :m) (contains? conf :k) (contains? conf :distance-fn)]
@@ -130,6 +138,7 @@
                 (recur nc (conj cs nc) (drop m rsp)))))]
       (cleanup-q-of-x conf)
       clusters)))
+
 
 (defmethod initialize-centroids
   :afk-mc

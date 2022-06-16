@@ -20,3 +20,4 @@
 (s/def ::rows (s/coll-of ::row))
 (s/def ::dataset ds/dataset?)
 (s/def ::dataset-seq (s/coll-of ::dataset))
+(s/def ::configuration map?)
