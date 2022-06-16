@@ -17,36 +17,39 @@
    [clojure.spec.alpha :as s]
    [tech.v3.dataset :as ds]
    [clojure.tools.logging :as log]
-   [josh.meanings.persistence :as p])
+   [josh.meanings.persistence :as p]
+   [clojure.spec.test.alpha :as stest])
   (:use
+   [josh.meanings.specs]
    [josh.meanings.initializations.core]
    [josh.meanings.initializations.utils]))
 
 
-(s/fdef square :args [:josh.meanings.specs/number] :ret :josh.meanings.specs/number)
-(defn- square [x] (* x x))
+(s/fdef square :args (s/cat :x :josh.meanings.specs/number) :ret :josh.meanings.specs/number)
+(defn- square [x] (*' x x))
 
 
-(s/fdef point :args [:josh.meanings.specs/row] :ret :josh.meanings.specs/point)
+(s/fdef point :args (s/cat :row :josh.meanings.specs/row) :ret :josh.meanings.specs/point)
 (defn- point [row] (butlast row))
 
-(s/fdef qx :args [:josh.meanings.specs/row] :ret :josh.meanings.specs/distance)
+(s/fdef qx :args (s/cat :row :josh.meanings.specs/row) :ret :josh.meanings.specs/distance)
 (defn- qx [row] (last row))
 
 
-(s/fdef sampled-needed 
-  :args [:josh.meanings.specs/cluster-count :josh.meanings.specs/chain-length]
-  :ret :josh.meanings.core/sample-count)
-(defn samples-needed [^long k ^long m] (* (dec k) m))
+(s/fdef samples-needed 
+  :args (s/cat :k :josh.meanings.specs/cluster-count 
+               :m :josh.meanings.specs/chain-length)
+  :ret :josh.meanings.specs/sample-count)
+(defn samples-needed [k m] (*' (dec k) m))
 
 ;; In the paper they formulate sampling such that sampling is carried out 
 ;; one weighted sample at a time. I'm not going to do that. Instead I'm going 
 ;; to get one large sample. Doing this means we won't be doing both the CPU 
 ;; intensive and disk intensive parts of our algorithm at the same time.
 (s/fdef samples 
-  :args [:josh.meanings.specs/dataset-seq 
-         :josh.meanings.specs/cluster-count
-         :josh.meanings.specs/chain-length]
+  :args (s/cat :ds-seq :josh.meanings.specs/dataset-seq 
+               :k :josh.meanings.specs/cluster-count
+               :m :josh.meanings.specs/chain-length)
   :ret :josh.meanings.specs/rows)
 (defn- samples
   "Get all the samples we'll need for the markov chain."
