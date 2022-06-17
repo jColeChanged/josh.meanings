@@ -16,10 +16,9 @@
   (:require
    [tech.v3.dataset :as ds]
    [clojure.tools.logging :as log]
-   [josh.meanings.persistence :as p])
-  (:use
-   [josh.meanings.initializations.core]
-   [josh.meanings.initializations.utils]))
+   [josh.meanings.persistence :as p]
+   [josh.meanings.initializations.utils :refer [centroids->dataset weighted-sample uniform-sample]]
+   [josh.meanings.initializations.core :refer [initialize-centroids]]))
 
 
 
