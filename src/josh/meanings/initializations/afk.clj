@@ -14,25 +14,54 @@
    for itself by reducing the chain length necessary to get convergence 
    guarantees."
   (:require
+   [clojure.spec.alpha :as s]
    [tech.v3.dataset :as ds]
    [clojure.tools.logging :as log]
    [josh.meanings.persistence :as p]
    [josh.meanings.initializations.utils :refer [centroids->dataset weighted-sample uniform-sample]]
-   [josh.meanings.initializations.core :refer [initialize-centroids]]))
+   [josh.meanings.initializations.core :refer [initialize-centroids]])
+  (:use
+   [josh.meanings.specs]))
 
 
+(s/fdef square :args (s/cat :x :josh.meanings.specs/number) :ret :josh.meanings.specs/number)
+(defn- square [x] (*' x x))
 
-(defn- square [x] (* x x))
+
+(s/fdef point :args (s/cat :row :josh.meanings.specs/row) :ret :josh.meanings.specs/point)
+(defn- point [row] (butlast row))
+
+(s/fdef qx :args (s/cat :row :josh.meanings.specs/row) :ret :josh.meanings.specs/distance)
+(defn- qx [row] (last row))
 
 
-(defn- point
-  [row]
-  (butlast row))
+(s/fdef samples-needed
+  :args (s/cat :k :josh.meanings.specs/cluster-count
+               :m :josh.meanings.specs/chain-length)
+  :ret :josh.meanings.specs/sample-count)
+(defn samples-needed [k m] (*' (dec k) m))
 
-(defn- qx
-  [row]
-  (last row))
+;; In the paper they formulate sampling such that sampling is carried out 
+;; one weighted sample at a time. I'm not going to do that. Instead I'm going 
+;; to get one large sample. Doing this means we won't be doing both the CPU 
+;; intensive and disk intensive parts of our algorithm at the same time.
+(s/fdef samples
+  :args (s/cat :ds-seq :josh.meanings.specs/dataset-seq
+               :k :josh.meanings.specs/cluster-count
+               :m :josh.meanings.specs/chain-length)
+  :ret :josh.meanings.specs/rows)
+(defn- samples
+  "Get all the samples we'll need for the markov chain."
+  [ds-seq ^long k ^long m]
+  {:post [(= (samples-needed k m) (count %))]}
+  (log/info "Sampling with respect to q(x)")
+  (let [sample-count (samples-needed k m)]
+    (weighted-sample ds-seq qx sample-count :replace true)))
 
+(s/fdef q-of-x
+  :args (s/cat
+         :conf :josh.meanings.specs/configuration
+         :cluster :josh.meanings.specs/point))
 (defn- q-of-x
   "Computes the q(x) distribution for all x in the dataset."
   [conf cluster]
@@ -51,6 +80,7 @@
                          (->> (p/read-dataset-seq conf :points)
                               (map #(ds/column-map % "q(x)" qx))))))
 
+(s/fdef q-of-x :args (s/cat :conf :josh.meanings.specs/configuration))
 (defn- cleanup-q-of-x
   "Removes q(x) distribution for all x in the dataset."
   [conf]
@@ -59,19 +89,11 @@
                             (map #(dissoc % "q(x)")))))
 
 
-
-;; In the paper they formulate sampling such that sampling is carried out 
-;; one weighted sample at a time. I'm not going to do that. Instead I'm going 
-;; to get one large sample. Doing this means we won't be doing both the CPU 
-;; intensive and disk intensive parts of our algorithm at the same time.
-(defn- samples
-  "Get all the samples we'll need for the markov chain."
-  [ds-seq k m]
-  (log/info "Sampling with respect to q(x)")
-  (let [sample-count (* (- k 1) m)]
-    (weighted-sample ds-seq qx sample-count :replace true)))
-
-
+(s/fdef mcmc-sample
+  :args (s/cat :distance-fn ifn?
+               :c :josh.meanings.specs/point
+               :rsp :josh.meanings.specs/rows)
+  :ret :josh.meanings.specs/point)
 (defn- mcmc-sample
   "Perform markov chain monte carlo sampling to approxiate D^2 sampling"
   [distance-fn c rsp]
@@ -92,8 +114,13 @@
          (if take (first points) x)
          (if take (first dyqyseq) dxqx))))))
 
+(s/fdef k-means-assumption-free-mc-initialization
+  :args (s/cat :conf :josh.meanings.specs/configuration)
+  :ret :josh.meanings.specs/points)
 (defn- k-means-assumption-free-mc-initialization
   [conf]
+  {:pre [(contains? conf :m) (contains? conf :k) (contains? conf :distance-fn)]
+   :post [(= (:k conf) (count %))]}
   (log/info "Performing afk-mc initialization")
   (log/info "Sampling cluster from dataset for initial centroid choice")
   (let [cluster (first (uniform-sample (p/read-dataset-seq conf :points) 1))]
@@ -111,6 +138,7 @@
                 (recur nc (conj cs nc) (drop m rsp)))))]
       (cleanup-q-of-x conf)
       clusters)))
+
 
 (defmethod initialize-centroids
   :afk-mc

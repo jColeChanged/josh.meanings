@@ -7,6 +7,8 @@
 
 (defn centroids->dataset
   [conf results]
+  {:pre [(= (count results) (:k conf))]
+   :post [(= (count results) (ds/row-count %))]}
   (ds/->dataset
    (persist/ds-seq->rows->maps
     (persist/read-dataset-seq conf :points)
