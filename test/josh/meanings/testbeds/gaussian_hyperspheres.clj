@@ -4,7 +4,7 @@
 
 
 (s/fdef gen-from-hypersphere
-  :args [:josh.meanings.specs/point]
+  :args (s/cat :center :josh.meanings.specs/point)
   :ret :josh.meanings.specs/point)
 (defn gen-from-hypersphere
   "Returns a sample from gaussian distribution centered 
@@ -14,7 +14,7 @@
 
 
 (s/fdef gen-hypersphere
-  :args [:josh.meanings.specs/dimensions]
+  :args (s/cat :dim-count :josh.meanings.specs/dimensions)
   :ret :josh.meanings.specs/point)
 (defn gen-hypersphere
   "Returns a centroid for a hypersphere with dim-count dimensions."
@@ -24,8 +24,9 @@
 
 
 (s/fdef gen-dataset
-        :args [:josh.meanings.specs/cluster-count :josh.meanings.specs/dimensions]
-        :ret :josh.meanings.specs/points)
+  :args (s/cat :cluster-count :josh.meanings.specs/cluster-count
+               :dim-count :josh.meanings.specs/dimensions)
+  :ret :josh.meanings.specs/points)
 (defn gen-dataset
   "Returns a dataset of points sampled from guassian hyperspheres."
   [cluster-count dim-count]
