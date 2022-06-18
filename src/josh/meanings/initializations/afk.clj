@@ -16,16 +16,13 @@
   (:require
    [clojure.spec.alpha :as s]
    [tech.v3.dataset :as ds]
+   [tech.v3.dataset.reductions :as dsr]
    [clojure.tools.logging :as log]
    [josh.meanings.persistence :as p]
    [josh.meanings.initializations.utils :refer [centroids->dataset weighted-sample uniform-sample]]
    [josh.meanings.initializations.core :refer [initialize-centroids]])
   (:use
    [josh.meanings.specs]))
-
-
-(s/fdef square :args (s/cat :x :josh.meanings.specs/number) :ret :josh.meanings.specs/number)
-(defn- square [x] (*' x x))
 
 
 (s/fdef point :args (s/cat :row :josh.meanings.specs/row) :ret :josh.meanings.specs/point)
@@ -58,6 +55,8 @@
   (let [sample-count (samples-needed k m)]
     (weighted-sample ds-seq qx sample-count :replace true)))
 
+(defn square [x] (* x x))
+
 (s/fdef q-of-x
   :args (s/cat
          :conf :josh.meanings.specs/configuration
@@ -66,16 +65,20 @@
   "Computes the q(x) distribution for all x in the dataset."
   [conf cluster]
   (log/info "Computing q(x) distribution with respect to" cluster)
-  (let [dx-squared (comp square (partial (:distance-fn conf) cluster))
-        regularization-term (/ 1 (* 2 (reduce + (map ds/row-count (p/read-dataset-seq conf :points)))))
-        d2-sum (->> (p/read-dataset-seq conf :points)
-                    (map ds/rowvecs)
-                    (map (partial map dx-squared))
-                    (map (partial reduce +))
-                    (reduce +))
+  (let [d (partial (:distance-fn conf) cluster)
+        dxs (comp square d)
+        dxs-for-cmap (fn [& cols] (dxs cols))
+        stats (dsr/aggregate
+               {"n" (dsr/row-count)
+                "sum(d(x)^2)" (dsr/sum "d(x)^2")}
+               (map #(ds/column-map % "d(x)^2" dxs-for-cmap) (p/read-dataset-seq conf :points)))
+        n (first (get stats "n"))
+        d2-sum (first (get stats "sum(d(x)^2)"))
+        regularization-term (/ 1 (* n 2))
         ;; instead of multiplying 1/2 by each refactoring the /2 into true-d2
         doubled-d2-sum (* 2 d2-sum)
-        qx (fn [& cols] (+ (/ (dx-squared cols) doubled-d2-sum) regularization-term))]
+        qx (fn [& cols] (+ (/ (dxs cols) doubled-d2-sum) regularization-term))]
+    (log/info "Caching q(x) distribution in :points dataset")
     (p/write-dataset-seq conf :points
                          (->> (p/read-dataset-seq conf :points)
                               (map #(ds/column-map % "q(x)" qx))))))

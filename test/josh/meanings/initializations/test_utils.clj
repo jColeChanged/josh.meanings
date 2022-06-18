@@ -1,9 +1,9 @@
 (ns josh.meanings.initializations.test-utils
   (:require [josh.meanings.initializations.utils :as utils]
             [tech.v3.dataset :as ds]
-            [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.generators :as gen]
-            [clojure.test.check.properties :as prop]))
+            [clojure.test.check.properties :as prop]
+            [clojure.test.check.clojure-test :refer [defspec]]))
 
 ;; When doing markov chain sampling we don't want to ever 
 ;; run into a situation where our markov chain isn't the 

@@ -6,6 +6,5 @@
 (stest/check `afk/samples-needed)
 (stest/check `afk/qx)
 (stest/check `afk/point)
-(stest/check `afk/square)
 ;; (stest/check `afk/samples)
 
