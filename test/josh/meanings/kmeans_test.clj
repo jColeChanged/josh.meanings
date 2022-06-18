@@ -137,7 +137,7 @@
    verifying that the program doesn't fail to run when dataset 
    sizes are large."
   []
-  (cons ["wins" "losses" "draws"] (repeatedly 10000000 (fn [] (repeatedly 3 #(rand-int 1000))))))
+  (cons ["wins" "losses" "draws"] (repeatedly 1000000 (fn [] (repeatedly 3 #(rand-int 1000))))))
 
 
 (defn create-large-testing-dataset!
