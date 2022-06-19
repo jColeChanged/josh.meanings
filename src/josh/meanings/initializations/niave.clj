@@ -4,17 +4,29 @@
    complete in O(n + k*d) time and only takes O(k*d) space."
   (:require
    [clojure.tools.logging :as log]
-   [josh.meanings.persistence :as persist])
+   [josh.meanings.persistence :as persist]
+   [josh.meanings.initializations.utils :refer [centroids->dataset uniform-sample]]
+   [josh.meanings.specs :as specs]
+   [clojure.spec.alpha :as s]
+   [clojure.test :refer [is?]])
   (:use
-   [josh.meanings.initializations.core]
-   [josh.meanings.initializations.utils]))
+   [josh.meanings.initializations.core]))
 
-(defn- niave-initialization
-  [k-means-state]
+
+;; Specs used in this file
+(def t-config :josh.meanings.specs/configuration)
+(def t-dataset :josh.meanings.specs/dataset)
+
+(s/fdef niave-initialization :args (s/cat :config t-config) :ret t-dataset)
+(defn- niave-initialization [config]
+  {:pre [(is? (s/valid? t-config config))] :post [(is? (s/valid? t-dataset %))]}
   (log/info "Performing classical (naive) k means initialization")
-  (uniform-sample (persist/read-dataset-seq k-means-state :points) (:k k-means-state)))
+  (centroids->dataset
+   config
+   (uniform-sample (persist/read-dataset-seq config :points) (:k config))))
+
 
 (defmethod initialize-centroids
   :niave
   [k-means-state]
-  (centroids->dataset k-means-state (niave-initialization k-means-state)))
+  (niave-initialization k-means-state))
