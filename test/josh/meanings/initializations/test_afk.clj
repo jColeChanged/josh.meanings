@@ -1,7 +1,7 @@
 (ns josh.meanings.initializations.test-afk
   (:require [clojure.pprint :as pprint]
             [clojure.spec.test.alpha :as stest]
-            [clojure.test :refer :all]
+            [clojure.test :refer [deftest is testing]]
             [josh.meanings.initializations.afk :as afk]))
 
 (defn conforming-to-the-spec?

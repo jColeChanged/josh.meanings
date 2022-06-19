@@ -8,7 +8,7 @@
    [josh.meanings.initializations.utils :refer [centroids->dataset uniform-sample]]
    [josh.meanings.specs :as specs]
    [clojure.spec.alpha :as s]
-   [clojure.test :refer [is?]])
+   [clojure.test :refer [is]])
   (:use
    [josh.meanings.initializations.core]))
 
@@ -19,7 +19,7 @@
 
 (s/fdef niave-initialization :args (s/cat :config t-config) :ret t-dataset)
 (defn- niave-initialization [config]
-  {:pre [(is? (s/valid? t-config config))] :post [(is? (s/valid? t-dataset %))]}
+  {:pre [(is (s/valid? t-config config))] :post [(is (s/valid? t-dataset %))]}
   (log/info "Performing classical (naive) k means initialization")
   (centroids->dataset
    config
