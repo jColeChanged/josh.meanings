@@ -83,7 +83,7 @@
                          (->> (p/read-dataset-seq conf :points)
                               (map #(ds/column-map % "q(x)" qx))))))
 
-(s/fdef q-of-x :args (s/cat :conf :josh.meanings.specs/configuration))
+(s/fdef cleanup-q-of-x :args (s/cat :conf :josh.meanings.specs/configuration))
 (defn- cleanup-q-of-x
   "Removes q(x) distribution for all x in the dataset."
   [conf]
