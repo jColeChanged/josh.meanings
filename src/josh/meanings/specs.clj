@@ -41,12 +41,29 @@
                    #(gen/fmap
                      (partial apply gen-dataset) 
                      (s/gen (s/cat :k ::k :d ::d)))))
+(s/def ::dataset-seq
+  (s/with-gen
+    (s/coll-of ::dataset)
+    #(gen/fmap
+      (juxt identity identity identity identity)
+      (s/gen ::dataset))))
 
-(s/def ::dataset-seq 
-       (s/with-gen
-        (s/coll-of ::dataset)
-        #(gen/fmap 
-          (juxt identity identity identity identity)
-          (s/gen ::dataset))))
+(s/def ::sampling-dataset
+  (s/with-gen
+    ds/dataset?
+    #(gen/fmap
+      (fn [dataset]
+        (let [last-column (last (ds/column-names dataset))]
+          (assoc dataset last-column (map (fn [x] (Math/abs x) (last dataset))))))
+      (s/gen ::dataset))))
+
+(s/def ::sampling-datasets
+  (s/with-gen
+    (s/coll-of ::sampling-dataset)
+    #(gen/fmap (juxt identity identity identity identity) (s/gen ::dataset))))
+
+;; (gen/generate (s/gen ::sampling-datasets))
+
+
 
 (s/def ::configuration map?)

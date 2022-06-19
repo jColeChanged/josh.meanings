@@ -20,7 +20,8 @@
    [clojure.tools.logging :as log]
    [josh.meanings.persistence :as p]
    [josh.meanings.initializations.utils :refer [centroids->dataset weighted-sample uniform-sample]]
-   [josh.meanings.initializations.core :refer [initialize-centroids]]))
+   [josh.meanings.initializations.core :refer [initialize-centroids]]
+   [josh.meanings.specs :as specs]))
 
 
 (s/fdef point :args (s/cat :row :josh.meanings.specs/row) :ret :josh.meanings.specs/point)
@@ -31,8 +32,7 @@
 
 
 (s/fdef samples-needed
-  :args (s/cat :k :josh.meanings.specs/cluster-count
-               :m :josh.meanings.specs/chain-length)
+  :args (s/cat :k :josh.meanings.specs/k :m :josh.meanings.specs/m)
   :ret :josh.meanings.specs/sample-count)
 (defn samples-needed [k m] (*' (dec k) m))
 
@@ -41,7 +41,7 @@
 ;; to get one large sample. Doing this means we won't be doing both the CPU 
 ;; intensive and disk intensive parts of our algorithm at the same time.
 (s/fdef samples
-  :args (s/cat :ds-seq :josh.meanings.specs/dataset-seq
+  :args (s/cat :ds-seq :josh.meanings.specs/sampling-datasets
                :k :josh.meanings.specs/k
                :m :josh.meanings.specs/m)
   :ret :josh.meanings.specs/rows
@@ -49,7 +49,7 @@
           (count (-> % :ret))))
 (defn- samples
   "Get all the samples we'll need for the markov chain."
-  [ds-seq ^long k ^long m]
+  [ds-seq k m]
   (log/info "Sampling with respect to q(x)")
   (weighted-sample ds-seq qx (samples-needed k m) :replace true))
 

@@ -135,9 +135,6 @@
                       (eduction (map ds/rowvecs) (persist/read-dataset-seq k-means-state :points)))))))
 
 
-
-
-
 (defn update-centroids
   [k-means-state]
   (log/info "Recalculating centroids based on assignments")
