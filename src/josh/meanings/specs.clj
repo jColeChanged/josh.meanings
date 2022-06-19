@@ -26,9 +26,12 @@
              (s/or :low-k ::low-k :large-k ::cluster-count)
              #(s/gen ::low-k)))
 
+(s/def ::chain-length pos-int?)
+(s/def ::low-m (s/int-in 2 10000))
+(s/def ::m (s/with-gen 
+            (s/or :low-m ::low-m ::high-m ::chain-length)
+            #(s/gen ::low-m)))
 
-
-(s/def ::chain-length pos-int?)            ;; m
 (s/def ::sample-count integer?)
 
 (s/def ::points (s/coll-of ::point))
@@ -39,5 +42,11 @@
                      (partial apply gen-dataset) 
                      (s/gen (s/cat :k ::k :d ::d)))))
 
-(s/def ::dataset-seq (s/coll-of ::dataset))
+(s/def ::dataset-seq 
+       (s/with-gen
+        (s/coll-of ::dataset)
+        #(gen/fmap 
+          (juxt identity identity identity identity)
+          (s/gen ::dataset))))
+
 (s/def ::configuration map?)
