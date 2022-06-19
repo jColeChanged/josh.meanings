@@ -1,7 +1,10 @@
 (ns josh.meanings.specs
   (:require
    [clojure.spec.alpha :as s]
+   [clojure.spec.gen.alpha :as gen]
+   [josh.meanings.testbeds.gaussian-hyperspheres :refer [gen-dataset]]
    [tech.v3.dataset :as ds]))
+
 
 (s/def ::number number?)
 (s/def ::point (s/coll-of ::number :min-count 1))
@@ -12,12 +15,29 @@
         #(>= (last %) 0)))
 
 (s/def ::dimensions pos-int?)              ;; d
+(s/def ::low-d (s/int-in 2 1000))
+(s/def ::d (s/with-gen
+             (s/or :low-d ::low-d :large-d ::dimensions)
+             #(s/gen ::low-d)))
+
 (s/def ::cluster-count pos-int?)           ;; k
+(s/def ::low-k (s/int-in 2 1000))
+(s/def ::k (s/with-gen
+             (s/or :low-k ::low-k :large-k ::cluster-count)
+             #(s/gen ::low-k)))
+
+
+
 (s/def ::chain-length pos-int?)            ;; m
 (s/def ::sample-count integer?)
 
 (s/def ::points (s/coll-of ::point))
 (s/def ::rows (s/coll-of ::row))
-(s/def ::dataset ds/dataset?)
+(s/def ::dataset (s/with-gen
+                   ds/dataset?
+                   #(gen/fmap
+                     (partial apply gen-dataset) 
+                     (s/gen (s/cat :k ::k :d ::d)))))
+
 (s/def ::dataset-seq (s/coll-of ::dataset))
 (s/def ::configuration map?)
