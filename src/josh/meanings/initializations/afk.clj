@@ -45,8 +45,10 @@
                :k :josh.meanings.specs/k
                :m :josh.meanings.specs/m)
   :ret :josh.meanings.specs/rows
-  :fn #(= (samples-needed (-> % :args :k) (-> % :args :m))
-          (count (-> % :ret))))
+  :fn (fn [{:keys [args ret]}]
+        (let [k (second (:k args))
+              m (second (:m args))]
+          (= (samples-needed k m) (count ret)))))
 (defn- samples
   "Get all the samples we'll need for the markov chain."
   [ds-seq k m]

@@ -19,11 +19,11 @@
   [cluster-count dim-count]
   (shuffle
    (let [hyperspheres (repeatedly cluster-count (partial gen-hypersphere dim-count))]
-     (mapcat #(repeatedly 1000 (partial gen-from-hypersphere %)) hyperspheres))))
+     (mapcat #(repeatedly 100 (partial gen-from-hypersphere %)) hyperspheres))))
 
 (defn gen-dataset
   "Returns a dataset of points sampled from guassian hyperspheres."
   [cluster-count dim-count]
   (ds/->dataset
-   (map (partial zipmap (range dim-count)) 
+   (map (partial zipmap (range dim-count))
         (gen-dataset-points cluster-count dim-count))))
