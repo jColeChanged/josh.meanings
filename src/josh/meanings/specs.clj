@@ -3,6 +3,8 @@
    [clojure.spec.alpha :as s]
    [clojure.spec.gen.alpha :as gen]
    [josh.meanings.testbeds.gaussian-hyperspheres :refer [gen-dataset]]
+   [josh.meanings.distances :refer [distance-keys]]
+   [josh.meanings.initializations.core :refer [initialization-keys]]
    [tech.v3.dataset :as ds]
    [tech.v3.datatype.functional :as dfn]))
 
@@ -64,3 +66,10 @@
     #(gen/fmap (juxt identity identity identity identity) (s/gen ::sampling-dataset))))
 
 (s/def ::configuration map?)
+
+
+(s/def ::distance-key
+  (s/with-gen keyword? #(s/gen distance-keys)))
+
+(s/def ::init-key
+  (s/with-gen keyword? #(s/gen initialization-keys)))

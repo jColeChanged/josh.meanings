@@ -29,3 +29,19 @@
 (defmethod get-distance-fn :cosine [_] distance/cosine)
 (defmethod get-distance-fn :angular [_] distance/angular)
 (defmethod get-distance-fn :jensen-shannon [_] distance/jensen-shannon)
+
+;; To enable generative testing we are keeping track of the keys we make 
+;; available. This isn't intended to stop someone from using a different 
+;; key. 
+(def distance-keys
+  [:euclidean
+   :manhattan
+   :chebyshev
+   :correlation
+   :canberra
+   :emd
+   :euclidean-sq
+   :discrete
+   :cosine
+   :angular
+   :jensen-shannon])

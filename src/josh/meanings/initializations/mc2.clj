@@ -14,17 +14,29 @@
    better suited to running on a single machine."
   (:require
    [clojure.tools.logging :as log]
-   [josh.meanings.persistence :as p])
+   [josh.meanings.persistence :as p]
+   [clojure.spec.alpha :as s]
+   [clojure.test :refer [is]])
   (:use
    [josh.meanings.initializations.core]
+
    [josh.meanings.initializations.utils]))
 
+
+(def t-datasets :josh.meanings.specs/datasets)
+(def t-cluster-count :josh.meanings.specs/k)
+(def t-chain-length :josh.meanings.specs/m)
+(def t-point :josh.meanings.specs/point)
+(def t-points :josh.meanings.specs/points)
 
 ;; In the paper they formulate sampling such that sampling is carried out 
 ;; one uniform sample at a time. I'm not going to do that. Instead I'm going 
 ;; to get one large sample as my first step. Doing this means we won't be 
 ;; doing both the CPU intensive and disk intensive parts of our algorithm 
 ;; at the same time.
+(s/fdef samples
+  :args (s/cat :ds-seq t-datasets :k t-cluster-count :m t-chain-length)
+  :ret t-points)
 (defn- samples
   "Get all the samples we'll need for the markov chain."
   [ds-seq k m]
@@ -36,6 +48,7 @@
   [x]
   (* x x))
 
+(s/fdef mcmc-sample :args (s/cat :distance-fn ifn? :c t-point :rsp t-points) :ret t-points)
 (defn- mcmc-sample
   "Perform markov chain monte carlo sampling to approxiate D^2 sampling"
   [distance-fn c rsp]
