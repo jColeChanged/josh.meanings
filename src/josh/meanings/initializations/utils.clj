@@ -2,9 +2,14 @@
   (:require [bigml.sampling.reservoir :as res-sample]
             [tech.v3.dataset :as ds]
             [clojure.tools.logging :as log]
-            [josh.meanings.persistence :as persist]))
+            [josh.meanings.persistence :as persist]
+            [clojure.spec.alpha :as s]))
+
+(def t-config :josh.meanings.specs/configuration)
+(def t-points :josh.meanings.specs/points)
 
 
+(s/fdef centroids->dataset :args (s/cat :conf t-config :results t-points))
 (defn centroids->dataset
   [conf results]
   {:pre [(= (count results) (:k conf))]
