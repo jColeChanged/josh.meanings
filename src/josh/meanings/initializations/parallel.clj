@@ -2,15 +2,14 @@
   (:require
    [clojure.tools.logging :as log]
    [josh.meanings.persistence :as persist]
-   [clojure.spec.alpha :as s])
+   [clojure.spec.alpha :as s]
+   [josh.meanings.initializations.utils :refer
+    [uniform-sample weighted-sample shortest-distance-squared-*]])
   (:use
-   [josh.meanings.initializations.core]
-   [josh.meanings.initializations.utils]))
+   [josh.meanings.initializations.core]))
 
 (def t-config :josh.meanings.specs/configuration)
 (def t-dataset :josh.meanings.specs/dataset)
-
-
 (s/fdef k-means-parallel :args (s/cat :config t-config) :ret t-dataset)
 (defn k-means-parallel
   [config]

@@ -15,7 +15,7 @@
   (:require
    [clojure.tools.logging :as log]
    [josh.meanings.persistence :as p]
-   [josh.meanings.initializations.utils :refer [uniform-sample]]
+   [josh.meanings.initializations.utils :refer [centroids->dataset uniform-sample]]
    [clojure.spec.alpha :as s]
    [clojure.test :refer [is]])
   (:use

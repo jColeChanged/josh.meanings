@@ -15,15 +15,17 @@
    [clojure.tools.logging :as log]
    [tech.v3.dataset.reductions :as ds-reduce]
    [tech.v3.dataset :as ds]
-   [clojure.string])
+   [clojure.string]
+   [josh.meanings.initializations.core :refer [initialize-centroids]]
+   [josh.meanings.initializations
+    [niave :as init-naive]
+    [mc2 :as init-mc2]
+    [afk :as init-afk]
+    [plusplus :as init-plusplus]
+    [parallel :as init-parallel]])
   (:use
    [josh.meanings.persistence :as persist]
    [josh.meanings.distances :as distances]
-   [josh.meanings.initializations.utils]
-   [josh.meanings.initializations.core]
-   [josh.meanings.initializations.mc2]
-   [josh.meanings.initializations.afk]
-   [josh.meanings.initializations.plusplus]
    [josh.meanings.initializations.niave]
    [clojure.java.io :as io]
    [tech.v3.dataset.math :as ds-math]
