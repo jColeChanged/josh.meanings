@@ -19,7 +19,7 @@
    [clojure.spec.alpha :as s]
    [clojure.test :refer [is]])
   (:use
-   [josh.meanings.initializations.utils]))
+   [josh.meanings.initializations.core]))
 
 (def t-dataset :josh.meanings.specs/dataset)
 (def t-datasets :josh.meanings.specs/datasets)
