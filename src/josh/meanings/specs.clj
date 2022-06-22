@@ -4,13 +4,17 @@
    [clojure.spec.gen.alpha :as gen]
    [josh.meanings.testbeds.gaussian-hyperspheres :refer [gen-dataset]]
    [josh.meanings.distances :refer [distance-keys]]
+   [josh.meanings.persistence :refer [formats]]
    [josh.meanings.initializations.core :refer [initialization-keys]]
+
    [tech.v3.dataset :as ds]
    [tech.v3.datatype.functional :as dfn]))
 
 
 (s/def ::number number?)
 (s/def ::point (s/coll-of ::number :min-count 1))
+(s/def ::points (s/coll-of :point :min-count 1))
+
 (s/def ::distance (s/and ::number (s/or :pos pos? :zero zero?)))
 (s/def ::row
   (s/and
@@ -65,11 +69,23 @@
     (s/coll-of ::sampling-dataset)
     #(gen/fmap (juxt identity identity identity identity) (s/gen ::sampling-dataset))))
 
-(s/def ::configuration map?)
-
-
 (s/def ::distance-key
   (s/with-gen keyword? #(s/gen distance-keys)))
 
 (s/def ::init-key
   (s/with-gen keyword? #(s/gen initialization-keys)))
+
+(s/def ::format-key (set (keys formats)))
+
+(s/def ::configuration
+  (s/keys :req-un
+          [:josh.meanings.specs/k
+           string?
+           string?
+           string?
+           :josh.meanings.specs/format-key
+           :josh.meanings.specs/init-key
+           :josh.meanings.specs/distance-key
+           ifn?
+           :josh.meanings.specs/m
+           ifn?]))

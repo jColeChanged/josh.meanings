@@ -19,13 +19,15 @@
    [clojure.spec.alpha :as s]
    [clojure.test :refer [is]])
   (:use
-   [josh.meanings.initializations.core]))
+   [josh.meanings.initializations.utils]))
 
+(def t-dataset :josh.meanings.specs/dataset)
 (def t-datasets :josh.meanings.specs/datasets)
 (def t-cluster-count :josh.meanings.specs/k)
 (def t-chain-length :josh.meanings.specs/m)
 (def t-point :josh.meanings.specs/point)
 (def t-points :josh.meanings.specs/points)
+(def t-config :josh.meanings.specs/configuration)
 
 ;; In the paper they formulate sampling such that sampling is carried out 
 ;; one uniform sample at a time. I'm not going to do that. Instead I'm going 
@@ -70,21 +72,24 @@
          (if take (first dseq) dx))))))
 
 
+(s/fdef k-means-mc-2-initialization :args (s/cat :conf t-config) :ret t-dataset)
 (defn- k-means-mc-2-initialization
   [conf]
   (log/info "Performing k-mc^2 initialization")
-  (let [k (:k conf)   ;; number of clusters
-        m (:m conf)   ;; markov chain length
-        sp (samples (p/read-dataset-seq conf :points) k m)]
-    (loop [c (first sp) cs [c] rsp (rest sp)]
-      (log/info "Performing round of mcmc sampling")
-      (if (empty? rsp)
-        cs
-        (let [nc (mcmc-sample (:distance-fn conf) c (take m rsp))]
-          (recur nc (conj cs nc) (drop m rsp)))))))
+  (centroids->dataset
+   conf
+   (let [k (:k conf)   ;; number of clusters
+         m (:m conf)   ;; markov chain length
+         sp (samples (p/read-dataset-seq conf :points) k m)]
+     (loop [c (first sp) cs [c] rsp (rest sp)]
+       (log/info "Performing round of mcmc sampling")
+       (if (empty? rsp)
+         cs
+         (let [nc (mcmc-sample (:distance-fn conf) c (take m rsp))]
+           (recur nc (conj cs nc) (drop m rsp))))))))
 
 (defmethod initialize-centroids
   :k-mc-squared
   [conf]
-  (centroids->dataset conf (k-means-mc-2-initialization conf)))
+  (k-means-mc-2-initialization conf))
 

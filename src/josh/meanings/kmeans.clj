@@ -36,7 +36,11 @@
 (defrecord ClusterResult
            [centroids cost configuration])
 
+
+
+
 (defrecord KMeansState
+
            [k  ;; Number of clusters
 
             ;; State is tracked indirectly via files so that we can run 
