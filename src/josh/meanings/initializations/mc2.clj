@@ -15,13 +15,11 @@
   (:require
    [clojure.tools.logging :as log]
    [josh.meanings.persistence :as p]
+   [josh.meanings.initializations.utils :refer [uniform-sample]]
    [clojure.spec.alpha :as s]
    [clojure.test :refer [is]])
   (:use
-   [josh.meanings.initializations.core]
-
-   [josh.meanings.initializations.utils]))
-
+   [josh.meanings.initializations.core]))
 
 (def t-datasets :josh.meanings.specs/datasets)
 (def t-cluster-count :josh.meanings.specs/k)
