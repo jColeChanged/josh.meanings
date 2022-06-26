@@ -26,7 +26,8 @@
                  [org.clojars.joshua/sampling "3.3"]
                  [criterium "0.4.6"]]
   :main josh.meanings.core
-  :jvm-opts ["-Xmx2g"]
+  :jvm-opts ["-Xmx2g"
+             "-XX:+TieredCompilation"]
   :repl-options {:init-ns josh.meanings.core}
   :deploy-repositories [["releases" :clojars]
                         ["snapshots" :clojars]])

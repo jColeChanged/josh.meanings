@@ -22,15 +22,15 @@
 
 (defn uniform-sample
   [ds-seq n & options]
-  (log/debug "Getting uniform sample of size" n)
+  (log/info "Getting uniform sample of size" n)
   (let [sample #(apply res-sample/sample (ds/rowvecs %) n options)]
     (apply res-sample/merge (map sample ds-seq))))
 
 (defn weighted-sample
   [ds-seq weight-fn n & options]
-  (log/debug "Getting weighted sample of size" n)
+  (log/info "Getting weighted sample of size" n)
   (let [sample #(apply res-sample/sample (ds/rowvecs %) n :weigh weight-fn options)]
-    (shuffle (apply res-sample/merge (map sample ds-seq)))))
+    (shuffle (apply res-sample/merge (pmap sample ds-seq)))))
 
 (defn shortest-distance-*
   "Denotes the shortest distance from a data point to a 
