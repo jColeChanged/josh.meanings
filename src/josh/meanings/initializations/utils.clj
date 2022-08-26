@@ -52,3 +52,22 @@
        (shortest-distance point centroids)
        2))))
 
+(s/fdef add-default-chain-length :args (s/cat :conf t-config :results t-config))
+(defn add-default-chain-length
+  "For monte carlo methods we need a chain length to use when 
+   doing sampling. Although callers can pass in a chain length 
+   there are some dangers when doing so - for example if the 
+   chain length is low it won't necessarily approximate k means 
+   plus plus. Meanwhile if the chian length is too low then 
+   there will be no point in doing sampling at all - we could 
+   just use k means plus plus rather than approximating it.
+
+   This function checks to see if a chain length is set and if 
+   one is then it does nothing, but it nothing is set it uses 
+   the formulas provided in the k means plus plus apporximation 
+   papers to ddetermine a reasonable chain length."
+  [conf]
+  ;; TODO: update the configuration to use a new chain length
+  ;; if doing so is appropriate
+  conf)
+
