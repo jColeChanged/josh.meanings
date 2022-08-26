@@ -28,6 +28,7 @@
   :main josh.meanings.core
   :jvm-opts ["-Xmx2g"
              "-XX:+TieredCompilation"]
+  :plugins [[org.clojars.joshua/josh.benchmarking "0.0.4"]]
   :repl-options {:init-ns josh.meanings.core}
   :deploy-repositories [["releases" :clojars]
                         ["snapshots" :clojars]])
