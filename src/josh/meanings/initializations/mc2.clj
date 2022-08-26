@@ -15,7 +15,7 @@
   (:require
    [clojure.tools.logging :as log]
    [josh.meanings.persistence :as p]
-   [josh.meanings.initializations.utils :refer [centroids->dataset uniform-sample]]
+   [josh.meanings.initializations.utils :refer [centroids->dataset uniform-sample add-default-chain-length]]
    [clojure.spec.alpha :as s]
    [clojure.test :refer [is]])
   (:use
@@ -91,5 +91,5 @@
 (defmethod initialize-centroids
   :k-mc-squared
   [conf]
-  (k-means-mc-2-initialization conf))
+  (k-means-mc-2-initialization (add-default-chain-length conf)))
 
