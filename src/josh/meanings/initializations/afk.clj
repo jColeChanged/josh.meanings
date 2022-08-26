@@ -19,7 +19,7 @@
    [tech.v3.dataset.reductions :as dsr]
    [clojure.tools.logging :as log]
    [josh.meanings.persistence :as p]
-   [josh.meanings.initializations.utils :refer [centroids->dataset weighted-sample uniform-sample]]
+   [josh.meanings.initializations.utils :refer [centroids->dataset weighted-sample uniform-sample add-default-chain-length]]
    [josh.meanings.initializations.core :refer [initialize-centroids]]
    [josh.meanings.specs :as specs]))
 
@@ -146,4 +146,4 @@
 (defmethod initialize-centroids
   :afk-mc
   [conf]
-  (centroids->dataset conf (k-means-assumption-free-mc-initialization conf)))
+  (centroids->dataset conf (k-means-assumption-free-mc-initialization (add-default-chain-length conf))))
