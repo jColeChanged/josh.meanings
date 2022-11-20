@@ -52,6 +52,47 @@
        (shortest-distance point centroids)
        2))))
 
+
+
+
+;; Helper methods to make setting up chain lengths less of a mental 
+;; burden.  When chain lengths aren't provided this code will figure 
+;; out a reasonable chain length and set it.
+
+(s/fdef chain-length-warnings :args (s/cat :conf t-config :results t-config))
+(defn chain-length-warnings
+  "Analyzes the chain length and emits warnings if necessary."
+  [config]
+  (when (< (:m config) (:size-estimate config))
+    ;; the monte carlo sampling is intended to approximate the sampling distrubtion 
+    ;; computed relative to the entire dataset which is constructed during k means++ 
+    ;; computation. A larger sample size results in a better approximation, eventually 
+    ;; converging to the true sampling distribution - at which point the monte carlo simulation 
+    ;; is just overheard. We aren't eliminating the sampling distribution error, but 
+    ;; doing wasteful computations.
+    (log/warn ":m, the chain length for mc sampling, is greater than the dataset size. You ought to be using k-means++ directly."))
+  config)
+
+
+
+
+(s/fdef should-update-chain-length? :args (s/cat :conf t-config :results boolean?))
+(defn should-update-chain-length? [conf] (nil? (:m conf)))
+
+(s/fdef update-chain-length :args (s/cat :conf t-config :results t-config))
+(defn update-chain-length
+  [conf]
+  {:post [(integer? (:m %))]}
+  ;; We choose to use a default chain length of k*log2(n)log(k)
+  ;; because this was the chain length used in Bachem's 2016 analysis 
+  ;; and so it has theoretical guarantees under some conditions.
+  (let [n (:size-estimate conf)
+        k (:k conf)
+        proposed-chain-length (int (* k (/ (Math/log n) (Math/log 2)) (Math/log k)))
+        m (min proposed-chain-length (dec n))]
+    (assoc conf :m m)))
+
+
 (s/fdef add-default-chain-length :args (s/cat :conf t-config :results t-config))
 (defn add-default-chain-length
   "For monte carlo methods we need a chain length to use when 
@@ -67,7 +108,9 @@
    the formulas provided in the k means plus plus apporximation 
    papers to ddetermine a reasonable chain length."
   [conf]
-  ;; TODO: update the configuration to use a new chain length
-  ;; if doing so is appropriate
-  conf)
+  (->
+   (if (should-update-chain-length? conf)
+     (update-chain-length conf)
+     conf)
+   chain-length-warnings))
 

@@ -2,7 +2,9 @@
   (:require [josh.meanings.initializations.utils :as utils]
             [tech.v3.dataset :as ds]
             [clojure.test.check.generators :as gen]
-            [clojure.test.check.properties :as prop]
+            [clojure.test.check.properties :as prop] 
+            [josh.meanings.kmeans :refer [->KMeansState]]
+            [clojure.test :refer [deftest is testing]]
             [clojure.test.check.clojure-test :refer [defspec]]))
 
 ;; When doing markov chain sampling we don't want to ever 
@@ -58,3 +60,37 @@
                 (let [ds-seq (gen-dataset-seq dims block-size blocks)]
                   (<= (count (utils/weighted-sample ds-seq first num-samples :replace false))
                       (* block-size blocks)))))
+
+
+
+(deftest test-default-chain-length
+  (testing "That the chain length is reasonable when set."
+    (let [k-means (utils/add-default-chain-length (->KMeansState
+                                                   100
+                                                   "test.points.csv"
+                                                   "test-centroids.csv"
+                                                   "test-assignments.csv"
+                                                   :csv
+                                                   :afk-mc
+                                                   :emd
+                                                   identity
+                                                   nil
+                                                   identity
+                                                   100))]
+      (is (< 0 (:m k-means)))
+      (is (< (:m k-means) (:size-estimate k-means)))))
+  (testing "That when chain lengths are already set the default is not used."
+    (let [k-means (utils/add-default-chain-length (->KMeansState
+                                                   100
+                                                   "test.points.csv"
+                                                   "test-centroids.csv"
+                                                   "test-assignments.csv"
+                                                   :csv
+                                                   :afk-mc
+                                                   :emd
+                                                   identity
+                                                   1000
+                                                   identity
+                                                   100))]
+      (is (=  (:m k-means) 1000)))))
+

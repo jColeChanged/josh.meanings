@@ -42,7 +42,6 @@
 
 
 (defrecord KMeansState
-
            [k  ;; Number of clusters
 
             ;; State is tracked indirectly via files so that we can run 
@@ -56,7 +55,15 @@
             distance-key
             distance-fn
             m
-            k-means])
+            k-means
+            size-estimate
+            ])
+
+
+(defn estimate-size
+  "Estimates the number of records in the dataset."
+  [config]
+  (assoc config :size-estimate 0))
 
 
 (defn initialize-centroids!
@@ -87,17 +94,21 @@
       (throw (Exception. (str "Invalid format provided. Format must be one of " (keys persist/formats)))))
     (log/debug "Validated k mean options")
     (log/info "Generating k mean configuration")
-    (persist/csv-seq-filename->format-seq (KMeansState.
-                                           k
-                                           points-file
-                                           (persist/change-extension (persist/centroids-filename points-file) :csv)
-                                           (persist/change-extension (persist/assignments-filename points-file) format)
-                                           format
-                                           init
-                                           distance-key
-                                           distance-fn
-                                           m
-                                           k-means) :points)))
+    (->
+     (persist/csv-seq-filename->format-seq (KMeansState.
+                                            k
+                                            points-file
+                                            (persist/change-extension (persist/centroids-filename points-file) :csv)
+                                            (persist/change-extension (persist/assignments-filename points-file) format)
+                                            format
+                                            init
+                                            distance-key
+                                            distance-fn
+                                            m
+                                            k-means
+                                            nil) :points)
+     estimate-size
+     )))
 
 
 
