@@ -21,6 +21,7 @@
   (:use
    [josh.meanings.initializations.core]))
 
+
 (def t-dataset :josh.meanings.specs/dataset)
 (def t-datasets :josh.meanings.specs/datasets)
 (def t-cluster-count :josh.meanings.specs/k)
@@ -48,16 +49,24 @@
   [x]
   (* x x))
 
+(defn make-weight-fn
+  "Create a function which computes the weight of a point given the 
+   current set of clusters."
+  [distance-fn clusters]
+  (fn [p2]
+    (square (apply max (for [p1 clusters] (distance-fn p1 p2))))))
+
+
 (s/fdef mcmc-sample :args (s/cat :distance-fn ifn? :c t-point :rsp t-points) :ret t-points)
 (defn- mcmc-sample
   "Perform markov chain monte carlo sampling to approxiate D^2 sampling"
-  [distance-fn c rsp]
+  [weight-fn c rsp]
 
   ;; not special casing first selection because it decomplicates the 
   ;; inner loop code so that we're doing the same thing each time 
   ;; without requiring a wrapping let
   (loop [ps rsp
-         dseq (map square (map (partial distance-fn c) rsp))
+         dseq (map weight-fn rsp)
          rands (repeatedly (count rsp) rand)
          x (first ps)
          dx (first dseq)]
@@ -72,6 +81,8 @@
          (if take (first dseq) dx))))))
 
 
+
+
 (s/fdef k-means-mc-2-initialization :args (s/cat :conf t-config) :ret t-dataset)
 (defn- k-means-mc-2-initialization
   [conf]
@@ -82,14 +93,14 @@
          m (:m conf)   ;; markov chain length
          sp (samples (p/read-dataset-seq conf :points) k m)]
      (loop [c (first sp) cs [c] rsp (rest sp)]
-       (log/info "Performing round of mcmc sampling")
-       (if (empty? rsp)
-         cs
-         (let [nc (mcmc-sample (:distance-fn conf) c (take m rsp))]
-           (recur nc (conj cs nc) (drop m rsp))))))))
+       (let [weight-fn (make-weight-fn (:distance-fn conf) cs)]
+         (log/info "Performing round of mcmc sampling")
+         (if (empty? rsp)
+           cs
+           (let [nc (mcmc-sample weight-fn c (take m rsp))]
+             (recur nc (conj cs nc) (drop m rsp)))))))))
 
 (defmethod initialize-centroids
   :k-mc-squared
   [conf]
   (k-means-mc-2-initialization (add-default-chain-length conf)))
-

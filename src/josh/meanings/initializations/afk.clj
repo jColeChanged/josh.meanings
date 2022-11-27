@@ -57,6 +57,13 @@
 
 (defn square [x] (* x x))
 
+(defn make-weight-fn
+  "Create a function which computes the weight of a point given the 
+   current set of clusters."
+  [distance-fn clusters]
+  (fn [p2]
+    (apply max (for [p1 clusters] (distance-fn p1 p2)))))
+
 (s/fdef q-of-x
   :args (s/cat
          :conf :josh.meanings.specs/configuration
@@ -99,10 +106,10 @@
   :ret :josh.meanings.specs/point)
 (defn- mcmc-sample
   "Perform markov chain monte carlo sampling to approxiate D^2 sampling"
-  [distance-fn c rsp]
+  [weight-fn rsp]
   (loop [points (map point rsp)                         ;; the points 
          dyqyseq  (map *                                ;; d(c, y) * q(y)
-                       (map (partial distance-fn c) points)
+                       (map weight-fn points)
                        (map qx rsp))
          rands (repeatedly (count points) rand)         ;; Unif(0, 1)
          x (first points)                               ;; x
@@ -130,15 +137,16 @@
     (log/info "Got initial cluster" cluster)
     (q-of-x conf cluster)
     (let [k (:k conf)   ;; number of clusters
-          m (:m conf)   ;; markov chain length
+          m (:m conf)   ;; markov chain length 
           sp (samples (p/read-dataset-seq conf :points) k m)
           clusters
-          (loop [c cluster cs [cluster] rsp sp]
+          (loop [cs [cluster] rsp sp]
+            (let [weight-fn (make-weight-fn (:distance-fn conf) cs)]
             (log/info "Performing round of mcmc sampling")
             (if (empty? rsp)
               cs
-              (let [nc (mcmc-sample (:distance-fn conf) c (take m rsp))]
-                (recur nc (conj cs nc) (drop m rsp)))))]
+              (let [nc (mcmc-sample weight-fn (take m rsp))]
+                (recur (conj cs nc) (drop m rsp))))))]
       (cleanup-q-of-x conf)
       clusters)))
 
