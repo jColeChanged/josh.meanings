@@ -6,7 +6,6 @@
    [josh.meanings.distances :refer [distance-keys]]
    [josh.meanings.persistence :refer [formats]]
    [josh.meanings.initializations.core :refer [initialization-keys]]
-
    [tech.v3.dataset :as ds]
    [tech.v3.datatype.functional :as dfn]))
 

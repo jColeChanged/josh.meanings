@@ -29,7 +29,6 @@
   (testing "That the point function is conforming to its spec"
     (is (-> `afk/point conforming-to-the-spec?))))
 
-
 ;; TODO: Sampling takes way longer than I think it ought to. 
 ;; It would be good to take advantage of much faster sampling. 
 ;; For example, pushing the sampling to the GPU.
