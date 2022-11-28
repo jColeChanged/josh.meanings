@@ -54,7 +54,7 @@
    current set of clusters."
   [distance-fn clusters]
   (fn [p2]
-    (square (apply max (for [p1 clusters] (distance-fn p1 p2))))))
+    (square (apply min (for [p1 clusters] (distance-fn p1 p2))))))
 
 
 (s/fdef mcmc-sample :args (s/cat :distance-fn ifn? :c t-point :rsp t-points) :ret t-points)

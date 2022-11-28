@@ -62,7 +62,7 @@
    current set of clusters."
   [distance-fn clusters]
   (fn [p2]
-    (apply max (for [p1 clusters] (distance-fn p1 p2)))))
+    (apply min (for [p1 clusters] (distance-fn p1 p2)))))
 
 (s/fdef q-of-x
   :args (s/cat

@@ -30,5 +30,7 @@
              "-XX:+TieredCompilation"]
   :plugins [[org.clojars.joshua/josh.benchmarking "0.0.4"]]
   :repl-options {:init-ns josh.meanings.core}
-  :deploy-repositories [["releases" :clojars]
-                        ["snapshots" :clojars]])
+  :deploy-repositories [["clojars" {:url "https://repo.clojars.org"
+                                    :sign-releases false 
+                                    :username :env/clojars_username
+                                    :password :env/clojars_password}]])
