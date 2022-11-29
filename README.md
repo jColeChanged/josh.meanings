@@ -18,65 +18,41 @@ the computation cannot be persisted to disk.
 
 [![Clojars Project](https://img.shields.io/clojars/v/org.clojars.joshua/josh.meanings.svg)](https://clojars.org/org.clojars.joshua/josh.meanings)
 
-## Technical Details
+## Getting Started
 
- - Initialization is implemented as a multimethod whose 
-   dispatch is chosen by the `:init` keyword. The following 
-   initialization methods are supported.
+```
+(require `[josh.meanings.kmeans :refer [k-means k-means-seq load-model]])
 
-   - `:niave`
-   - `:k-means-++`
-   - `:k-means-parallel`
-   - `:k-mc-squared`
-   - `:afk-mc`
 
-   If you would prefer a different initialization scheme, you 
-   can provide your own by adding a new `defmethod`.
+;; Get a dataset.  You can pass in your dataset under a variety of formats. 
+;; See the docs for more details on supported formats.
+(def dataset "your_dataset.csv")  
 
-   When calling the library the implementation will default to 
-   `afk-mc` which is the assumption free approximation of 
-   `k-means-++`. 
+;; Choose the number of clusters you want
+(def k 10)
 
- - This library assumes that datasets will be medium data - larger than 
-   memory, but smaller than disk. Callers must provide a reference to the 
-   file which contains the dataset or a lazy sequence so that the dataset is 
-   never fully realized in memory. The library leverages 
-   `techascent.ml.dataset` to handle dataset serialization and 
-   deserialization.
 
-   Some file types aren't well suited to high performance 
-   serialization and deserialization. The `:format` keyword controls 
-   what file format will be used to persist data during the computation. 
-   The list of supports formats are:
+;; To get a single cluster model
+(def model (k-means dataset k))
 
-    - `:csv`
-    - `:arrow`
-    - `:arrows`
-    - `:parquet`
+;; Alternatively you can run k means multiple times.  This is recommended because 
+;; some k means initializations don't give guarantees on the quality of a solution 
+;; and so you can get better results by running k means multiple times and taking 
+;; the best result.
+(def model (apply min-key :cost (take k-tries (k-means-seq cluster-dataset-name k)))))
 
-   By default the `:parquet` format will be used.
-  
- - Though it is possible to run k means a single time this is not 
-   recommended. In general, k means doesn't find the globally optimal 
-   solution. it is especially prone to finding bad clusters when run 
-   using naive initialization, but even with k-means-++ and 
-   k-means-parallel there is stochasticity. Multiple runs can converge 
-   on different solutions. So it makes sense to run multiple times 
-   and keep the best one.
+;; Once you have a model you can save it.
+;; (def model-path (.save-model model))
 
-   `k-means-seq` returns a lazy sequence of cluster results as well as 
-   their cost. You can use it in various ways to ensure you get a good 
-   clustering run - perhaps taking the first ten cluster attempts and 
-   keeping the best one. Or perhaps something more sophisticated like 
-   continuing to do clusteirng until you think the probability of finding 
-   an improvmenet goes below some threshold.
+;; Later you can load that model
+(def model (load-model model-path))
 
- - Tested on both massive datasets and toy datasets. This is an area 
-   that could use further improvement, since right now the tests are for 
-   the happy path - the default number of runs, init, and format.
+;; To load the assignments just
+;; (.load-assignment model)
 
- - Which distance function should be used is left up to a multimethod protocol 
-   that will dispatch based on the `:distance-fn` key. Special care 
-   should be taken when choosing non-euclidean distances, because k-means 
-   is not guaranteed to converge or stabilize with arbitrary distance 
-   functions.
+;; To classify a new entry
+;; (.classify model [1 2 3])
+
+;; To view the centroids
+(:centroids model)
+```
