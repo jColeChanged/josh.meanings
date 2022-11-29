@@ -61,10 +61,9 @@
 
 
 (defn estimate-size
-  "Estimates the number of records in the dataset."
+  "Update the number of records in the dataset."
   [config]
-  (assoc config :size-estimate 0))
-
+  (assoc config :size-estimate (reduce + (map ds/row-count  (persist/read-dataset-seq config :points)))))
 
 (defn initialize-centroids!
   [k-means-state]
