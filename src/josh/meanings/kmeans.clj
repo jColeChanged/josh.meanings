@@ -11,31 +11,34 @@
   cohesion. As a result k means is best run multiple times in order to 
   avoid the trap of a local minimum."
 
-  (:require
-   [clojure.tools.logging :as log]
-   [tech.v3.dataset.reductions :as ds-reduce]
-   [tech.v3.dataset :as ds]
-   [clojure.string]
-   [josh.meanings.initializations.core :refer [initialize-centroids]]
-   [josh.meanings.initializations
-    [niave :as init-naive]
-    [mc2 :as init-mc2]
-    [afk :as init-afk]
-    [plusplus :as init-plusplus]
-    [parallel :as init-parallel]])
+  (:require [clojure.spec.alpha :as s :refer [valid?]]
+            [clojure.test.check.generators :as gen]
+            [clojure.string]
+            [clojure.test :refer [is]]
+            [clojure.tools.logging :as log]
+            [josh.meanings.initializations
+             [niave :as init-naive]
+             [mc2 :as init-mc2]
+             [afk :as init-afk]
+             [plusplus :as init-plusplus]
+             [parallel :as init-parallel]]
+            [josh.meanings.distances :as jmdistance]
+            [josh.meanings.initializations.core :refer [initialize-centroids]]
+            [tech.v3.dataset :as ds]
+            [tech.v3.dataset.reductions :as ds-reduce]
+            [clojure.test.check.generators :as gen])
+            ;;[tablecloth.api :as tc]
+            ;;[tech.v3.datatype.functional :as dfn])
   (:use
    [josh.meanings.persistence :as persist]
-   [josh.meanings.distances :as distances]
    [josh.meanings.initializations.niave]
    [clojure.java.io :as io]
-   [tech.v3.dataset.math :as ds-math]
-   [fastmath.vector :as math])
-  (:gen-class))
+   [tech.v3.dataset.math :as ds-math]))
 
 (set! *warn-on-reflection* true)
 
 (defprotocol PClusterModel
-  (save-model [this filename]) 
+  (save-model [this filename])
   (load-assignments [this])
   (classify [this x]))
 
@@ -44,6 +47,8 @@
             cost      ;; The total distance between centroids and assignments
             configuration  ;; a map of details about the configuration used to generate the cluster result
             ]
+
+  PClusterModel
   (save-model [this filename] (spit filename (pr-str this)))
   (load-assignments [this] (ds/->dataset (:assignments (:configuration this)) {:key-fn keyword}))
   (classify [this point] (apply min-key (map (partial (:distance-fn point)) (:centroids this)))))
@@ -51,6 +56,17 @@
 (defn load-model
   [filename]
   (read-string (slurp filename)))
+
+(defprotocol PPersistence
+  
+  (column-names [this])
+  (load-centroids [this])
+  (load-points [this])
+  (load-assignments [this]))
+
+
+
+
 
 (defrecord KMeansState
            [k  ;; Number of clusters
@@ -61,15 +77,36 @@
             points
             centroids
             assignments
-            
+
             format ;; The format that will be used to store the points, centroids and assignments.
             init   ;; The initialization method that will be used to generate the initial centroids.
             distance-key  ;; The key that will be used to determine the distance function to use.
             distance-fn   ;; The distance function itself, derived from the distance-key.
             m             ;; The chain length to use when doing monte carlo sampling if applicable.
             k-means       ;; A reference to the k-means function; sometimes k means classification requires recursion.
-            size-estimate ;; An estimate of the size of the dataset.  Sometimes useful in initialization methods and sanity checks.
-            ])
+            size-estimate ;; An estimate of the size of the dataset.  Sometimes useful in initialization methods and sanity checks. 
+            ]
+
+  PPersistence
+  (load-centroids
+    [this]
+    (-> (:centroids this)
+        (ds/->dataset {:header-row? true :key-fn keyword})))
+
+  (load-points
+    [this]
+    (persist/read-dataset-seq this :points))
+
+  (load-assignments
+    [this]
+    (persist/read-dataset-seq this :points))
+
+  (column-names
+    [this]
+    (remove #{:assignments (keyword "q(x)")}
+            (-> (:centroids this)
+                (ds/->dataset {:header-row? true :key-fn keyword})
+                (ds/column-names)))))
 
 
 (defn estimate-size
@@ -99,7 +136,7 @@
   (let [format (or (:format options) default-format)
         init (or (:init options) default-init)
         distance-key (or (:distance-fn options) default-distance-fn)
-        distance-fn (distances/get-distance-fn distance-key)
+        distance-fn (jmdistance/get-distance-fn distance-key)
         m (or (:m options) 200)]
     (when (not (contains? persist/formats format))
       (throw (Exception. (str "Invalid format provided. Format must be one of " (keys persist/formats)))))
@@ -118,71 +155,222 @@
                                             m
                                             k-means
                                             nil) :points)
-     estimate-size
-     )))
+     estimate-size)))
 
 
 
-(defn find-closest-centroid
-  [^KMeansState configuration]
-  (let [distance-fn (:distance-fn configuration)]
-    (fn [centroids point]
-      (let [distances (map (partial distance-fn point) centroids)]
-        (first (apply min-key second (map-indexed vector distances)))))))
 
-(defn assign-clusters
-  [k-means-state]
-  (log/info "Generating assignments")
-  (let [datasets (persist/read-dataset-seq k-means-state :points)
-        columns (persist/dataset-seq->column-names datasets)
-        to-vec (fn [row] (map #(get row %) columns))
-        assign (comp
-                (partial hash-map :assignment)
-                (partial
-                 (find-closest-centroid k-means-state)
-                 (persist/read-centroids-from-file k-means-state))
-                to-vec)
-        map-assignment (fn [dataset] (ds/row-map dataset assign))]
-    (persist/write-dataset-seq k-means-state :assignments (map map-assignment datasets))))
+(defn min-index
+  "Returns the index of the minimum value in a collection."
+  [coll]
+  (first (apply min-key second (map-indexed vector coll))))
+
+(s/def ::non-empty-seq-of-numbers
+  (s/with-gen
+    (s/coll-of number? :min-count 1)
+    #(gen/not-empty (gen/vector gen/nat))))
+
+(s/fdef min-index
+  :args (s/cat :coll ::non-empty-seq-of-numbers)
+  :ret nat-int?
+  :fn (s/and
+       ;; Test that the return value is a valid index
+       #(< (:ret %) (-> % :args :coll count))
+       ;; Test that the value at the returned index is equal to the minimum value
+       #(let [coll (-> % :args :coll)]
+          (= (nth coll (:ret %)) (apply min coll)))))
+
+
+(defn max-index
+  "Returns the index of the minimum value in a collection."
+  [coll]
+  (first (apply max-key second (map-indexed vector coll))))
+
+(s/fdef max-index
+  :args (s/cat :coll ::non-empty-seq-of-numbers)
+  :ret nat-int?
+  :fn (s/and
+       ;; Test that the return value is a valid index
+       #(< (:ret %) (-> % :args :coll count))
+       ;; Test that the value at the returned index is equal to the maximum value
+       #(let [coll (-> % :args :coll)]
+          (= (nth coll (:ret %)) (apply max coll)))))
+
+
+(defn distances
+  "Returns a vector of distance of the centroids from the point."
+  [centroids distance-fn point]
+  (map (partial distance-fn point) centroids))
+
+(s/fdef distances
+  :args (s/cat :centroids (s/or
+                           :buffer #(and (sequential? %) (pos? (count %)))
+                           :vec (s/coll-of (s/coll-of number? :min-count 1) :min-count 1))
+               :distance-fn #(or (fn? %) (ifn? %))
+               :point (s/coll-of number? :min-count 1))
+  :ret (s/coll-of number? :min-count 1)
+  :fn (s/and
+       ;; Test that distances are non-negative 
+       #(every? (complement neg?) (:ret %))
+       ;; Test that the number of distances returned is equal to the number of centroids
+       #(= (-> % :args :centroids count) (-> % :ret count))))
+
+
+(defn classify
+  "Returns the index of the centroid that is closest to the point."
+  [centroids distance-fn point]
+  (min-index (distances centroids distance-fn point)))
+
+
+(s/fdef classify 
+  :args (s/cat :centroids (s/coll-of (s/coll-of number? :min-count 1) :min-count 1)
+               :distance-fn #(or (fn? %) (ifn? %))
+               :point (s/coll-of number? :min-count 1))
+  :ret nat-int?
+  :fn (s/and
+       ;; Test that the return value is a valid index
+        #(< (:ret %) (-> % :args :centroids count))))
+
+
+(defn assignments
+  "Returns the assignments of the points to the centroids."
+  [centroids distance-fn points]
+  (map (partial classify centroids distance-fn) points))
+
+
+(s/fdef assignments
+  :args (s/cat :centroids (s/or
+                           :buffer #(and (sequential? %) (pos? (count %)))
+                           :vec (s/coll-of (s/coll-of number? :min-count 1) :min-count 1))
+               :distance-fn #(or (fn? %) (ifn? %))
+               :points (s/or
+                        :buffer #(and (sequential? %) (pos? (count %)))
+                        :vec (s/coll-of (s/coll-of number? :min-count 1) :min-count 1)))
+  :ret (s/coll-of number? :min-count 1)
+  :fn (s/and
+       ;; Test that the number of assignments returned is equal to the number of points.
+       #(= (-> % :args :points count) (-> % :ret count))))
+
+(defn dataset-assignments
+  "Updates the assignments dataset with the new assignments."
+  [centroids distance-fn cols points]
+  (let [ds->rows #(-> % (ds/select-columns cols) ds/rowvecs)]
+    (assoc points :assignments (assignments (ds->rows centroids) distance-fn (ds->rows points)))))
+
+(s/fdef dataset-assignments 
+  :args (s/cat :centroids ds/dataset?
+               :distance-fn #(or (fn? %) (ifn? %)) 
+               :cols (s/coll-of keyword? :min-count 1)
+               :points ds/dataset?)
+  :ret ds/dataset?
+  :fn (s/and
+       ;; Test that the returned dataset contains an assignments column
+        #(contains? (ds/column-names (:ret %)) :assignments)
+        ;; Test that the number of assignments in the returned dataset is equal to the number of points
+        #(= (-> % :args :points ds/row-count) (-> % :ret (ds/select-columns [:assignments]) ds/row-count))
+        ;; Test that the assignments in the returned dataset are gettable in centroids
+        #(let [centroids (-> % :args :centroids ds/value-reader)]
+               assignments (-> % :ret :assignments)
+           (every? (fn [a] (contains? centroids a)) assignments)))) 
+
+
+(defn dataset-assignments-seq
+  "Updates a sequence of assignment datasets with the new assignments."
+  [centroids distance-fn cols points-seq] 
+  (for [points points-seq] (dataset-assignments centroids distance-fn cols points)))
+
+(s/fdef dataset-assignments-seq
+  :args (s/cat :centroids ds/dataset?
+               :distance-fn #(or (fn? %) (ifn? %)) 
+               :cols (s/coll-of keyword? :min-count 1)
+               :points-seq (s/coll-of ds/dataset? :min-count 1))
+  :ret (s/coll-of ds/dataset? :min-count 1)
+  :fn (s/and
+       ;; Test that the returned sequence of datasets contains an assignments column
+       #(every? (fn [x] contains? (ds/column-names x) :assignments) (:ret %))
+       ;; Test that the number of assignments in the returned sequence of datasets is equal to the number of points
+       #(let [points (-> % :args :s first)
+              assignments (-> % :ret first :assignments)]
+          (= (ds/row-count points) (count assignments)))))
+
+
+(defn regenerate-assignments!
+  "Writes the new assignments to the assignments file."
+  [s]
+  (persist/write-dataset-seq
+   s
+   :assignments
+   (dataset-assignments-seq (.load-centroids s) (:distance-fn s) (.column-names s) (.load-points s))))
+
+
+;; (defn distance-from-assignment
+;;   "Returns the distance of an assigned point from its centroid."
+;;   [centroids distance-fn assignment point] 
+;;   (distance-fn (nth centroids assignment) point))
+
+;; (defn distances-from-assignments
+;;   "Returns the distances of the points from their centroids."
+;;   [centroids distance-fn assignments points]
+;;   (map (partial distance-from-assignment centroids distance-fn) assignments points))
+
+;; (defn distances-from-assignments-seq
+;;   "Returns the distances of the points from their centroids."
+;;   [centroids distance-fn assignments-seq points-seq]
+;;   (map (fn [[assignments points]] (distances-from-assignments centroids distance-fn assignments points))
+;;        (map vector assignments-seq points-seq)))
+
+(defn sum 
+  "Returns the sum of the numbers in the sequence."
+  [numbers]
+  (reduce + 0 numbers))
+
+(defn cost
+  "Returns the distance of an assigned point from its centroid."
+  [centroids distance-fn assignment point] 
+  (distance-fn (centroids assignment) point))
+
+(defn costs
+  "Returns the distances of the points from their centroids."
+  [centroids distance-fn assignments points]
+  (map (partial cost centroids distance-fn) assignments points))
+
+(defn dataset-costs
+  "Returns the distances of the points from their centroids."
+  [centroids distance-fn cols points]
+  (let [ds->rows #(-> % (ds/select-columns cols) ds/rowvecs)]
+    (costs (ds->rows centroids) distance-fn (-> points :assignments) (ds->rows points))))
+
+(defn dataset-costs-seq
+  "Returns the distances of the points from their centroids."
+  [centroids distance-fn cols points-seq]
+  (for [points points-seq]
+    (dataset-costs centroids distance-fn cols points)))
 
 
 (defn calculate-objective
-  [k-means-state]
+  [s]
   (log/info "Calculating objective")
-  (let [centroids (persist/read-centroids-from-file k-means-state)
-        assign->centroid (partial nth centroids)
-        assigns->centroids (comp (map ds/rows)
-                                 (map (partial map #(% "assignment")))
-                                 (map (partial map assign->centroid)))]
-    (reduce + 0
-            (map (partial reduce + 0)
-                 (map (partial map (:distance-fn k-means-state))
-                      (eduction
-                       assigns->centroids
-                       (persist/read-dataset-seq k-means-state :assignments))
-                      (eduction (map ds/rowvecs) (persist/read-dataset-seq k-means-state :points)))))))
+  (sum (map sum (dataset-costs-seq (.load-centroids s) (:distance-fn s) (.column-names s) (.load-assignments s)))))
 
 
 (defn update-centroids
   [k-means-state]
   (log/info "Recalculating centroids based on assignments")
-  (let [column-names (persist/dataset-seq->column-names
-                      (persist/read-dataset-seq k-means-state :assignments))]
+  (let [column-names (persist/dataset-seq->column-names (persist/read-dataset-seq k-means-state :assignments))]
     (ds/drop-columns
      (ds-reduce/group-by-column-agg
-      "assignment"
+      :assignments
       (zipmap
        column-names
        (map ds-reduce/mean column-names))
       (persist/read-dataset-seq k-means-state :assignments))
-     ["assignment"])))
+     [:assignments])))
 
 
 (defn recalculate-means
   [k-means-state]
   (let [centroids (update-centroids k-means-state)]
     (persist/write-dataset-seq k-means-state :centroids centroids)
-;;    (ds/write! centroids (:centroids k-means-state))
     centroids))
 
 (defn stabilized?
@@ -245,6 +433,31 @@
 
 
 
+(defn k-means-via-file
+  [points-filepath k & options]
+  {:pre [(is (valid? :josh.meanings.specs/k k))
+         (is (valid? string? points-filepath))]
+   :post [(= (ds/row-count (:centroids %)) k)
+          (= (count (set (ds/rowvecs (:centroids %)))) k)]}
+  (let [k-means-state (initialize-k-means-state points-filepath k (apply hash-map options))
+        initial-centroids (initialize-centroids! k-means-state)]
+    (log/info "Got initial centroids" initial-centroids)
+    (log/info "Initial centroids has" (ds/row-count initial-centroids) "rows")
+    (loop [centroids initial-centroids
+           centroids-history []]
+      (log/info "Loop is now at" (ds/row-count centroids) "rows")
+
+      (regenerate-assignments! k-means-state)
+      (log/info "Assignments after assign-clusters is " (persist/read-dataset-seq k-means-state :assignments))
+      (let [new-centroids (recalculate-means k-means-state)]
+        (log/info "Got new centroids" new-centroids)
+        (log/info "New centroids has" (ds/row-count new-centroids) "rows")
+        (if (stabilized? new-centroids centroids)
+          (map->ClusterResult
+           {:centroids new-centroids
+            :cost (calculate-objective k-means-state)
+            :configuration k-means-state})
+          (recur new-centroids (conj centroids-history centroids)))))))
 
 
 ;; We never want to rely on things fitting in memory, but in practice 
@@ -263,44 +476,19 @@
 (defmethod k-means
   java.lang.String
   [points-filepath k & options]
-  (let [k-means-state (initialize-k-means-state points-filepath k (apply hash-map options))
-        initial-centroids (initialize-centroids! k-means-state)]
-    (log/info "Starting optimization process for" k-means-state)
-    (loop [centroids initial-centroids
-           centroids-history []]
-      (assign-clusters k-means-state)
-      (let [new-centroids (recalculate-means k-means-state)]
-        (if (stabilized? new-centroids centroids)
-          (map->ClusterResult
-           {:centroids new-centroids
-            :cost (calculate-objective k-means-state)
-            :configuration k-means-state})
-          (recur new-centroids (conj centroids-history centroids)))))))
+  (apply k-means-via-file points-filepath k options))
+
 
 ;; If we don't get a reference to our file, we'll have to create it.
 ;; We don't want to support things that are too large to fit in memory
-;; even still so we're accepting lazy seqs and not everything. 
-;; 
-;; Really we're fine with accepting anything that can be understood by 
-;; ds/->dataset. 
+;; even still so we're accepting lazy seqs and not everything.
 (defmethod k-means
   clojure.lang.LazySeq
   [lazy-seq k & options]
-  ;; We try to get a unique filename and we try to avoid writing to a 
-  ;; format and we try to avoid the extra work of converting between 
-  ;; formats if we can help it.
   (let [format (or (:format options) default-format)
         suffix (:suffix (format persist/formats))
-        ;; I didn't want to use a full path like you would get with a temp 
-        ;; file here, because doing so would break the namespacing of `centroids.`
-        ;; and `assignments.` 
-        ;; 
-        ;; The namespacing mechanism really ought to be better than this, but 
-        ;; I want to get things working before I try to make things clean. 
         filename (str (java.util.UUID/randomUUID) suffix)]
-    (ds/write!
-     (ds/->dataset lazy-seq)
-     filename)
+    (ds/write! (ds/->dataset lazy-seq) filename)
     (apply k-means filename k options)))
 
 

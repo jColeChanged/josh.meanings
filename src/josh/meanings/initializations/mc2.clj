@@ -86,6 +86,8 @@
 (s/fdef k-means-mc-2-initialization :args (s/cat :conf t-config) :ret t-dataset)
 (defn- k-means-mc-2-initialization
   [conf]
+  {:pre [(contains? conf :m) (contains? conf :k) (contains? conf :distance-fn)]
+   :post [(= (:k conf) (count %))]}
   (log/info "Performing k-mc^2 initialization")
   (centroids->dataset
    conf

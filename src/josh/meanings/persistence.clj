@@ -52,7 +52,7 @@
         format (filename->format filename)
         reader-fn (-> formats format :reader)]
     (log/info "Loading" filename "with" format)
-    (reader-fn filename)))
+    (reader-fn filename {:key-fn keyword})))
 
 (defn dataset-seq->column-names
   [ds-seq]
@@ -119,4 +119,4 @@
   [k-means-state]
   (ds/rowvecs
    (ds/->dataset
-    (:centroids k-means-state) {:file-type :csv :header-row? true})))
+    (:centroids k-means-state) {:key-fn keyword :file-type :csv :header-row? true})))

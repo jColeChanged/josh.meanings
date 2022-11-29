@@ -22,13 +22,13 @@
 
 (defn uniform-sample
   [ds-seq n & options]
-  (log/info "Getting uniform sample of size" n)
+  (log/debug "Getting uniform sample of size" n)
   (let [sample #(apply res-sample/sample (ds/rowvecs %) n options)]
     (apply res-sample/merge (map sample ds-seq))))
 
 (defn weighted-sample
   [ds-seq weight-fn n & options]
-  (log/info "Getting weighted sample of size" n)
+  (log/debug "Getting weighted sample of size" n)
   (let [sample #(apply res-sample/sample (ds/rowvecs %) n :weigh weight-fn options)]
     (shuffle (apply res-sample/merge (pmap sample ds-seq)))))
 

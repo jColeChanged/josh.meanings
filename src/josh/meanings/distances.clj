@@ -21,7 +21,7 @@
    use cases since it doesn't minimize the variational distance like euclidean
    would.  If you don't know why :emd is the default you should probably switch 
    to using :euclidean."
-  (:require [fastmath.distance :as distance]))
+  (:require [fastmath.distance :as fmdistances]))
 
 
 ;; I don't want to lock people out of using their preferred distance 
@@ -40,17 +40,17 @@
 ;; supports. I'll worry about GPU support and how that might make this more 
 ;; complicated when I get to that stage. Until then I want to do the simplest 
 ;; thing which will work.
-(defmethod get-distance-fn :euclidean [_] distance/euclidean)
-(defmethod get-distance-fn :manhattan [_] distance/manhattan)
-(defmethod get-distance-fn :chebyshev [_] distance/chebyshev)
-(defmethod get-distance-fn :correlation [_] distance/correlation)
-(defmethod get-distance-fn :canberra [_] distance/canberra)
-(defmethod get-distance-fn :emd [_] distance/earth-movers)
-(defmethod get-distance-fn :euclidean-sq [_] distance/euclidean-sq)
-(defmethod get-distance-fn :discrete [_] distance/discrete)
-(defmethod get-distance-fn :cosine [_] distance/cosine)
-(defmethod get-distance-fn :angular [_] distance/angular)
-(defmethod get-distance-fn :jensen-shannon [_] distance/jensen-shannon)
+(defmethod get-distance-fn :euclidean [_] fmdistances/euclidean)
+(defmethod get-distance-fn :manhattan [_] fmdistances/manhattan)
+(defmethod get-distance-fn :chebyshev [_] fmdistances/chebyshev)
+(defmethod get-distance-fn :correlation [_] fmdistances/correlation)
+(defmethod get-distance-fn :canberra [_] fmdistances/canberra)
+(defmethod get-distance-fn :emd [_] fmdistances/earth-movers)
+(defmethod get-distance-fn :euclidean-sq [_] fmdistances/euclidean-sq)
+(defmethod get-distance-fn :discrete [_] fmdistances/discrete)
+(defmethod get-distance-fn :cosine [_] fmdistances/cosine)
+(defmethod get-distance-fn :angular [_] fmdistances/angular)
+(defmethod get-distance-fn :jensen-shannon [_] fmdistances/jensen-shannon)
 
 ;; To enable generative testing we are keeping track of the keys we make 
 ;; available. This isn't intended to stop someone from using a different 

@@ -25,11 +25,10 @@
                   :exclusions [org.slf4j/slf4j-log4j12]]
                  [org.clojars.joshua/sampling "3.3"]
                  [criterium "0.4.6"]]
-  :main josh.meanings.core
   :jvm-opts ["-Xmx2g"
              "-XX:+TieredCompilation"]
   :plugins [[org.clojars.joshua/josh.benchmarking "0.0.4"]]
-  :repl-options {:init-ns josh.meanings.core}
+  :repl-options {:init-ns josh.meanings.kmeans}
   :deploy-repositories [["clojars" {:url "https://repo.clojars.org"
                                     :sign-releases false 
                                     :username :env/clojars_username
