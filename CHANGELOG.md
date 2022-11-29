@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 
+## [0.3.1] - 2022-11-28
+
+ - Updated documentation to reflect usage.
+ - Improved ease of use - defaults for chain length chosen automatically when not provided.
+ - Expanded test coverage with generative testing.
+ - Added support for saving and loading learned models.
+ - Assignments when calling k-means-seq no longer overwrite each other.
+ - Add .load-assignments and .classify to ClusterResult.
+
 ## [0.1.5] - 2022-06-08
 
  - Now support the mc^2 initialization method.
