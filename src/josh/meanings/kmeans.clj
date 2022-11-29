@@ -44,6 +44,8 @@
             cost      ;; The total distance between centroids and assignments
             configuration  ;; a map of details about the configuration used to generate the cluster result
             ]
+  
+  PClusterModel
   (save-model [this filename] (spit filename (pr-str this)))
   (load-assignments [this] (ds/->dataset (:assignments (:configuration this)) {:key-fn keyword}))
   (classify [this point] (apply min-key (map (partial (:distance-fn point)) (:centroids this)))))
