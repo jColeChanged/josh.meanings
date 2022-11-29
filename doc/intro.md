@@ -47,6 +47,27 @@ that will dispatch based on the `:distance-fn` key. Special care
 should be taken when choosing non-euclidean distances, because k-means 
 is not guaranteed to converge or stabilize with arbitrary distance 
 functions.
+   
+The `get-distance-fn` multimethod dispatches based on identity to 
+determine what distance function to use when calculating distances. 
+By default the supported distance function keys are:
+
+- :euclidean
+- :manhattan
+- :chebyshev
+- :correlation
+- :canberra
+- :emd
+- :euclidean-sq
+- :discrete
+- :cosine
+- :angular
+- :jensen-shannon
+
+The default distance function is :emd which may not be appropriate for all
+use cases since it doesn't minimize the variational distance like euclidean
+would.  If you don't know why :emd is the default you should probably switch 
+to using :euclidean.
 
 ## Calling Options
 

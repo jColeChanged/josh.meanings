@@ -1,4 +1,26 @@
 (ns josh.meanings.distances
+  "Multimethod for distance calculations.
+   
+   The `get-distance-fn` multimethod dispatches based on identity to 
+   determine what distance function to use when calculating distances. 
+   By default the supported distance function keys are:
+   
+   - :euclidean
+   - :manhattan
+   - :chebyshev
+   - :correlation
+   - :canberra
+   - :emd
+   - :euclidean-sq
+   - :discrete
+   - :cosine
+   - :angular
+   - :jensen-shannon
+
+   The default distance function is :emd which may not be appropriate for all
+   use cases since it doesn't minimize the variational distance like euclidean
+   would.  If you don't know why :emd is the default you should probably switch 
+   to using :euclidean."
   (:require [fastmath.distance :as distance]))
 
 
