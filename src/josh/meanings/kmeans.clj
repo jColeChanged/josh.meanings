@@ -36,7 +36,10 @@
 
 
 (defrecord ClusterResult
-           [centroids cost configuration])
+           [centroids ;; A vector of points
+            cost      ;; The total distance between centroids and assignments
+            configuration  ;; a map of details about the configuration used to generate the cluster result
+            ])
 
 
 
@@ -50,13 +53,14 @@
             points
             centroids
             assignments
-            format
-            init
-            distance-key
-            distance-fn
-            m
-            k-means
-            size-estimate
+            
+            format ;; The format that will be used to store the points, centroids and assignments.
+            init   ;; The initialization method that will be used to generate the initial centroids.
+            distance-key  ;; The key that will be used to determine the distance function to use.
+            distance-fn   ;; The distance function itself, derived from the distance-key.
+            m             ;; The chain length to use when doing monte carlo sampling if applicable.
+            k-means       ;; A reference to the k-means function; sometimes k means classification requires recursion.
+            size-estimate ;; An estimate of the size of the dataset.  Sometimes useful in initialization methods and sanity checks.
             ])
 
 
