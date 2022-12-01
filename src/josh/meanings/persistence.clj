@@ -44,6 +44,7 @@
 (defn filename->format
   "Parses a format lookup key from a filename."
   [filename]
+  {:post [(contains? formats (:ret %))]}
   (-> filename extension keyword))
 
 (defn read-dataset-seq
