@@ -42,10 +42,9 @@
   (last (clojure.string/split filename #"\.")))
 
 (defn filename->format
+  "Parses a format lookup key from a filename."
   [filename]
-  (-> filename
-      extension
-      keyword))
+  (-> filename extension keyword))
 
 (defn read-dataset-seq
   [k-means-state key]
