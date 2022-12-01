@@ -47,7 +47,13 @@
   {:post [(contains? formats %)]}
   (-> filename extension keyword))
 
+(defn file?
+  "Returns true if a file exists and false otherwise."
+  [filename]
+  (.exists (clojure.java.io/file filename)))  
+  
 (defn read-dataset-seq
+  "Loads the dataset at the file path in key."
   [k-means-state key]
   (let [filename (key k-means-state)
         format (filename->format filename)
@@ -97,14 +103,6 @@
   [ds-seq rows]
   (let [column-names (dataset-seq->column-names ds-seq)]
     (map #(zipmap column-names %) rows)))
-
-(defn file?
-  "Returns true if a file exists and false otherwise."
-  [filename]
-  (.exists (clojure.java.io/file filename)))
-
-
-
 
 (defn generate-filename
   [prefix]
