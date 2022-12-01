@@ -17,6 +17,7 @@
 ;; call. If and when parquet fails, I'll have an escape hatch to quickly 
 ;; try a different file format.
 (def formats
+  "Supported file formats for reading and writing datasets."
   {:parquet
    {:writer ds-parquet/ds-seq->parquet
     :reader ds-parquet/parquet->ds-seq
