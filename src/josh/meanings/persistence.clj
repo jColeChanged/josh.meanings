@@ -17,6 +17,7 @@
 ;; call. If and when parquet fails, I'll have an escape hatch to quickly 
 ;; try a different file format.
 (def formats
+  "Supported file formats for reading and writing datasets."
   {:parquet
    {:writer ds-parquet/ds-seq->parquet
     :reader ds-parquet/parquet->ds-seq
@@ -41,12 +42,18 @@
   (last (clojure.string/split filename #"\.")))
 
 (defn filename->format
+  "Parses a format lookup key from a filename."
   [filename]
-  (-> filename
-      extension
-      keyword))
+  {:post [(contains? formats %)]}
+  (-> filename extension keyword))
 
+(defn file?
+  "Returns true if a file exists and false otherwise."
+  [filename]
+  (.exists (clojure.java.io/file filename)))  
+  
 (defn read-dataset-seq
+  "Loads the dataset at the file path in key."
   [k-means-state key]
   (let [filename (key k-means-state)
         format (filename->format filename)
@@ -96,14 +103,6 @@
   [ds-seq rows]
   (let [column-names (dataset-seq->column-names ds-seq)]
     (map #(zipmap column-names %) rows)))
-
-(defn file?
-  "Returns true if a file exists and false otherwise."
-  [filename]
-  (.exists (clojure.java.io/file filename)))
-
-
-
 
 (defn generate-filename
   [prefix]
