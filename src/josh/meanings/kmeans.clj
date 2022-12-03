@@ -295,28 +295,12 @@
 
 (defn regenerate-assignments!
   "Writes the new assignments to the assignments file."
-  [s]
+  [^KMeansState s]
   (persist/write-dataset-seq
    s
    :assignments
    (dataset-assignments-seq (.load-centroids s) (:distance-fn s) (.column-names s) (.load-points s))))
 
-
-;; (defn distance-from-assignment
-;;   "Returns the distance of an assigned point from its centroid."
-;;   [centroids distance-fn assignment point] 
-;;   (distance-fn (nth centroids assignment) point))
-
-;; (defn distances-from-assignments
-;;   "Returns the distances of the points from their centroids."
-;;   [centroids distance-fn assignments points]
-;;   (map (partial distance-from-assignment centroids distance-fn) assignments points))
-
-;; (defn distances-from-assignments-seq
-;;   "Returns the distances of the points from their centroids."
-;;   [centroids distance-fn assignments-seq points-seq]
-;;   (map (fn [[assignments points]] (distances-from-assignments centroids distance-fn assignments points))
-;;        (map vector assignments-seq points-seq)))
 
 (defn sum 
   "Returns the sum of the numbers in the sequence."
@@ -347,29 +331,29 @@
 
 
 (defn calculate-objective
-  [s]
+  [^KMeansState s]
   (log/info "Calculating objective")
   (sum (map sum (dataset-costs-seq (.load-centroids s) (:distance-fn s) (.column-names s) (.load-assignments s)))))
 
 
 (defn update-centroids
-  [k-means-state]
+  [^KMeansState s]
   (log/info "Recalculating centroids based on assignments")
-  (let [column-names (persist/dataset-seq->column-names (persist/read-dataset-seq k-means-state :assignments))]
+  (let [column-names (persist/dataset-seq->column-names (persist/read-dataset-seq s :assignments))]
     (ds/drop-columns
      (ds-reduce/group-by-column-agg
       :assignments
       (zipmap
        column-names
        (map ds-reduce/mean column-names))
-      (persist/read-dataset-seq k-means-state :assignments))
+      (persist/read-dataset-seq s :assignments))
      [:assignments])))
 
 
 (defn recalculate-means
-  [k-means-state]
-  (let [centroids (update-centroids k-means-state)]
-    (persist/write-dataset-seq k-means-state :centroids centroids)
+  [^KMeansState s]
+  (let [centroids (update-centroids s)]
+    (persist/write-dataset-seq s :centroids centroids)
     centroids))
 
 (defn stabilized?
