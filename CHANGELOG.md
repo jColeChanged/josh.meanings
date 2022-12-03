@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 
+## [0.3.4] - 2022-12-03
+
+ - Fixes a bug which could cause incorrect assignment of points to clusters.
+ - Expands unit test coverage.
+
 ## [0.3.1] - 2022-11-28
 
  - Updated documentation to reflect usage.
