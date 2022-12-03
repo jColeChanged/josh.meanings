@@ -24,22 +24,47 @@
    [josh.meanings.specs :as specs]))
 
 
-(s/fdef point :args (s/cat :row :josh.meanings.specs/row) :ret :josh.meanings.specs/point)
-(defn- point [row] (butlast row))
+(defn- point 
+  "Returns a poiint from a row, dropping q(x) entry."
+  [row] 
+  (butlast row))
 
-(s/fdef qx :args (s/cat :row :josh.meanings.specs/row) :ret :josh.meanings.specs/distance)
-(defn- qx [row] (last row))
+(s/fdef point 
+  :args (s/cat :row :josh.meanings.specs/row) 
+  :ret :josh.meanings.specs/point)
 
+(defn- qx 
+  "Returns q(x) from a row."
+  [row] 
+  (last row))
+
+(s/fdef qx
+  :args (s/cat :row :josh.meanings.specs/row)
+  :ret :josh.meanings.specs/distance)
+
+
+(defn samples-needed
+  "Returns the number of samples needed to do monte carlo sampling."
+  [k m]
+  (*' (dec k) m))
 
 (s/fdef samples-needed
-  :args (s/cat :k :josh.meanings.specs/k :m :josh.meanings.specs/m)
+  :args (s/cat
+         :k :josh.meanings.specs/k
+         :m :josh.meanings.specs/m)
   :ret :josh.meanings.specs/sample-count)
-(defn samples-needed [k m] (*' (dec k) m))
+
 
 ;; In the paper they formulate sampling such that sampling is carried out 
 ;; one weighted sample at a time. I'm not going to do that. Instead I'm going 
 ;; to get one large sample. Doing this means we won't be doing both the CPU 
 ;; intensive and disk intensive parts of our algorithm at the same time.
+(defn- samples
+  "Get all the samples we'll need for the markov chain."
+  [ds-seq k m]
+  (log/info "Sampling with respect to q(x)")
+  (weighted-sample ds-seq qx (samples-needed k m) :replace true))
+
 (s/fdef samples
   :args (s/cat :ds-seq :josh.meanings.specs/sampling-datasets
                :k :josh.meanings.specs/k
@@ -49,13 +74,15 @@
         (let [k (second (:k args))
               m (second (:m args))]
           (= (samples-needed k m) (count ret)))))
-(defn- samples
-  "Get all the samples we'll need for the markov chain."
-  [ds-seq k m]
-  (log/info "Sampling with respect to q(x)")
-  (weighted-sample ds-seq qx (samples-needed k m) :replace true))
 
-(defn square [x] (* x x))
+
+(defn square
+  "Returns the x^2."
+  [x]
+  (* x x))
+
+(s/fdef square :args (s/cat :x number?) :ret number?)
+
 
 (defn make-weight-fn
   "Create a function which computes the weight of a point given the 
@@ -63,6 +90,7 @@
   [distance-fn clusters]
   (fn [p2]
     (apply min (for [p1 clusters] (distance-fn p1 p2)))))
+
 
 (s/fdef q-of-x
   :args (s/cat
@@ -94,6 +122,7 @@
 (defn- cleanup-q-of-x
   "Removes q(x) distribution for all x in the dataset."
   [conf]
+  (log/info "Removing cached q(x) distribution in :points dataset")
   (p/write-dataset-seq conf :points
                        (->> (p/read-dataset-seq conf :points)
                             (map #(dissoc % "q(x)")))))
