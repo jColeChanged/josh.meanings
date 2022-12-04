@@ -16,6 +16,8 @@
             [clojure.string]
             [clojure.test :refer [is]]
             [clojure.tools.logging :as log]
+            [josh.meanings.records.clustering-state :refer [->KMeansState]]
+            [josh.meanings.records.cluster-result :refer [map->ClusterResult]]
             [josh.meanings.initializations
              [niave :as init-naive]
              [mc2 :as init-mc2]
@@ -25,15 +27,14 @@
             [josh.meanings.distances :as jmdistance]
             [josh.meanings.initializations.core :refer [initialize-centroids]]
             [tech.v3.dataset :as ds]
-            [tech.v3.dataset.reductions :as ds-reduce]
-            [clojure.test.check.generators :as gen])
-            ;;[tablecloth.api :as tc]
-            ;;[tech.v3.datatype.functional :as dfn])
+            [tech.v3.dataset.reductions :as ds-reduce])
   (:use
    [josh.meanings.persistence :as persist]
    [josh.meanings.initializations.niave]
    [clojure.java.io :as io]
-   [tech.v3.dataset.math :as ds-math]))
+   [tech.v3.dataset.math :as ds-math])
+  (:import 
+   [josh.meanings.records.clustering_state KMeansState]))
 
 (set! *warn-on-reflection* true)
 
@@ -48,75 +49,11 @@
   :ret number?)
   
 
-(defprotocol PClusterModel
-  (save-model [this filename])
-  (load-assignments [this])
-  (classify [this x]))
 
-(defrecord ClusterResult
-  [centroids ;; A vector of points
-   cost      ;; The total distance between centroids and assignments
-   configuration  ;; a map of details about the configuration used to generate the cluster result
-  ]
-  PClusterModel 
-  (save-model [this filename] (spit filename (pr-str this)))
-  (load-assignments [this] (ds/->dataset (:assignments (:configuration this))))
-  (classify [this point] (apply min-key (map (partial (:distance-fn point)) (:centroids this)))))
 
 (defn load-model
   [filename]
   (read-string (slurp filename)))
-
-(defprotocol PPersistence
-  
-  (column-names [this])
-  (load-centroids [this])
-  (load-points [this])
-  (load-assignments [this]))
-
-
-
-
-
-(defrecord KMeansState
-           [k  ;; Number of clusters
-
-            ;; State is tracked indirectly via files so that we can run 
-            ;; on datasets that are too large to fit in memory. Points, centroids, 
-            ;; assignments are all this type of file references. 
-            points
-            centroids
-            assignments
-            format ;; The format that will be used to store the points, centroids and assignments.
-            init   ;; The initialization method that will be used to generate the initial centroids.
-            distance-key  ;; The key that will be used to determine the distance function to use.
-            distance-fn   ;; The distance function itself, derived from the distance-key.
-            m             ;; The chain length to use when doing monte carlo sampling if applicable.
-            k-means       ;; A reference to the k-means function; sometimes k means classification requires recursion.
-            size-estimate ;; An estimate of the size of the dataset.  Sometimes useful in initialization methods and sanity checks. 
-            ]
-
-  PPersistence
-  (load-centroids
-    [this]
-    (-> (:centroids this)
-        (ds/->dataset {:header-row? true})))
-
-  (load-points
-    [this]
-    (persist/read-dataset-seq this :points))
-
-  (load-assignments
-    [this]
-    (persist/read-dataset-seq this :points))
-
-  (column-names
-    [this]
-    (remove #{"assignments" "q(x)"}
-            (-> this
-                (persist/read-dataset-seq :points) 
-                first
-                (ds/column-names)))))
 
 
 (defn estimate-size
@@ -156,7 +93,7 @@
     (log/debug "Validated k mean options")
     (log/info "Generating k mean configuration")
     (->
-     (persist/csv-seq-filename->format-seq (KMeansState.
+     (persist/csv-seq-filename->format-seq (->KMeansState
                                             k
                                             points-file
                                             (persist/change-extension (persist/centroids-filename points-file) format)

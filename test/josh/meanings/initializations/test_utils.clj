@@ -3,7 +3,7 @@
             [tech.v3.dataset :as ds]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop] 
-            [josh.meanings.kmeans :refer [->KMeansState]]
+            [josh.meanings.records.clustering-state :refer [->KMeansState]]
             [clojure.test :refer [deftest is testing]]
             [clojure.test.check.clojure-test :refer [defspec]]))
 
