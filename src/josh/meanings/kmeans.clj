@@ -316,17 +316,41 @@
    (dataset-assignments-seq (.load-centroids s) (:distance-fn s) (.column-names s) (.load-points s))))
 
 
-
-
 (defn cost
   "Returns the distance of an assigned point from its centroid."
   [centroids distance-fn assignment point] 
   (distance-fn (centroids assignment) point))
 
+(s/fdef cost
+  :args (s/cat :centroids (s/coll-of (s/coll-of number? :min-count 1) :min-count 1)
+               :distance-fn #(or (fn? %) (ifn? %))
+               :assignment nat-int?
+               :point (s/coll-of number? :min-count 1))
+  :ret number?
+  :fn (s/and
+       ;; Test that the cost is non-negative
+       #(not (neg? (:ret %)))))
+
 (defn costs
   "Returns the distances of the points from their centroids."
   [centroids distance-fn assignments points]
   (map (partial cost centroids distance-fn) assignments points))
+
+(s/fdef costs 
+  :args (s/cat :centroids (s/or
+                           :buffer #(and (sequential? %) (pos? (count %)))
+                           :vec (s/coll-of (s/coll-of number? :min-count 1) :min-count 1))
+               :distance-fn #(or (fn? %) (ifn? %))
+               :assignments (s/or
+                             :buffer #(and (sequential? %) (pos? (count %)))
+                             :vec (s/coll-of number? :min-count 1))
+               :points (s/or
+                        :buffer #(and (sequential? %) (pos? (count %)))
+                        :vec (s/coll-of (s/coll-of number? :min-count 1) :min-count 1)))
+  :ret (s/coll-of number? :min-count 1)
+  :fn (s/and
+       ;; Test that the number of costs returned is equal to the number of points.
+       #(= (-> % :args :points count) (-> % :ret count))))
 
 (defn dataset-costs
   "Returns the distances of the points from their centroids."

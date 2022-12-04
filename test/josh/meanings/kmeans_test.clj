@@ -5,6 +5,7 @@
             [josh.meanings.distances :refer [get-distance-fn]]
             [josh.meanings.kmeans :refer [sum
                                           min-index
+                                          cost
                                           max-index
                                           distances
                                           classify
@@ -143,6 +144,16 @@
                (map #(% "assignments") (dataset-assignments-seq dataset-centroids distance-fn [:wins :draws] [dataset-points dataset-points])))))))
 
 
+(deftest testing-cost 
+  (stest/instrument `cost)
+  (testing "That the cost function returns the correct cost."
+    (let [centroids [[2 0 0] [0 2 0] [1 1 0]]
+          distance-fn (get-distance-fn :emd)
+          point [0 2 0]]
+      (is (= 2.0 (cost centroids distance-fn 0 point)))
+      (is (= 0.0 (cost centroids distance-fn 1 point)))
+      (is (= 1.0 (cost centroids distance-fn 2 point))))))
+      
 ;; Given generators for centroids it should be possible to implement an 
 ;; identity test.check which checks an equivalence relation between finding 
 ;; the index of a value and classifying a value.
