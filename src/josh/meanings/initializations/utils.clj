@@ -1,11 +1,14 @@
 (ns josh.meanings.initializations.utils
   (:require
+   [clojure.tools.logging :as log]
+   [clojure.spec.alpha :as s]
    [bigml.sampling.reservoir :as res-sample]
    [tech.v3.dataset :as ds]
-   [clojure.tools.logging :as log]
    [josh.meanings.persistence :as persist]
-   [clojure.spec.alpha :as s]
-   [josh.meanings.specs :as specs]))
+   [josh.meanings.records.clustering-state]
+   [josh.meanings.specs :as specs])
+  (:import 
+   [josh.meanings.records.clustering_state KMeansState]))
 
 (def t-dataset :josh.meanings.specs/dataset)
 (def t-config  :josh.meanings.specs/configuration)
@@ -19,7 +22,7 @@
 
 (defn centroids->dataset
   "Converts a vector of points to a dataset."
-  [s results]
+  [^KMeansState s results]
   {:pre [(= (count results) (:k s))]
    :post [(= (count results) (ds/row-count %))]}
   (vector->dataset results (.column-names s)))
