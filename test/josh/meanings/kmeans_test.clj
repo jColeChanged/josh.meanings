@@ -3,7 +3,8 @@
             [josh.test.core :refer [check?]]
             [tech.v3.dataset :as ds]
             [josh.meanings.distances :refer [get-distance-fn]]
-            [josh.meanings.kmeans :refer [min-index
+            [josh.meanings.kmeans :refer [sum
+                                          min-index
                                           max-index
                                           distances
                                           classify
@@ -21,6 +22,11 @@
   (:use [clojure.data.csv :as csv]
         [clojure.java.io :as io]))
 
+(deftest testing-sum
+  (stest/instrument `sum)
+  (testing "Test that sum returns the correct answers."
+    (is (= 0 (sum [])))
+    (is (= 30 (sum [10 10 10])))))
 
 (deftest test-min-index
   (testing "That min index conforms to its spec."

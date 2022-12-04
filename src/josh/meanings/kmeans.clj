@@ -37,6 +37,17 @@
 
 (set! *warn-on-reflection* true)
 
+
+(defn sum 
+  "Returns the sum of the numbers in the sequence."
+  [coll]
+  (reduce + 0 coll))
+
+(s/fdef sum
+  :args (s/cat :coll (s/coll-of number?))
+  :ret number?)
+  
+
 (defprotocol PClusterModel
   (save-model [this filename])
   (load-assignments [this])
@@ -111,7 +122,7 @@
 (defn estimate-size
   "Update the number of records in the dataset."
   [config]
-  (assoc config :size-estimate (reduce + (map ds/row-count  (persist/read-dataset-seq config :points)))))
+  (assoc config :size-estimate (sum (map ds/row-count (persist/read-dataset-seq config :points)))))
 
 (defn initialize-centroids!
   "Calls initialize-centroids and writes the returned dataset to the centroids file."
@@ -305,10 +316,7 @@
    (dataset-assignments-seq (.load-centroids s) (:distance-fn s) (.column-names s) (.load-points s))))
 
 
-(defn sum 
-  "Returns the sum of the numbers in the sequence."
-  [numbers]
-  (reduce + 0 numbers))
+
 
 (defn cost
   "Returns the distance of an assigned point from its centroid."
