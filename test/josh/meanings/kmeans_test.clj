@@ -68,7 +68,7 @@
           distance-fn (get-distance-fn :emd)
           dataset (ds/->dataset centroids)
           expected [0 1 2]]
-      (is (= expected (:assignments (dataset-assignments dataset distance-fn [:wins :losses :draws] dataset))))))
+      (is (= expected ((dataset-assignments dataset distance-fn [:wins :losses :draws] dataset) "assignments")))))
   
   (testing "That the assignments are correct event when the dataset ordering isn't the same as the centroid ordering."
     (let [centroids [{:losses 0 :draws 0 :wins 2}
@@ -81,7 +81,7 @@
           dataset-centroids (ds/->dataset centroids)
           dataset-points (ds/->dataset points)
           expected [0 1 2]]
-      (is (= expected (:assignments (dataset-assignments dataset-centroids distance-fn [:wins :losses :draws] dataset-points))))))
+      (is (= expected ((dataset-assignments dataset-centroids distance-fn [:wins :losses :draws] dataset-points) "assignments")))))
     (testing "That the assignments are correct event when getting only a subset of the columns."
       (let [centroids [{:losses 0 :draws 0 :wins 2}
                        {:losses 2 :draws 0 :wins 0}
@@ -94,7 +94,7 @@
             dataset-centroids (ds/->dataset centroids)
             dataset-points (ds/->dataset points)
             expected [0 1 2 0]]
-        (is (= expected (:assignments (dataset-assignments dataset-centroids distance-fn [:wins :draws] dataset-points)))))))
+        (is (= expected ((dataset-assignments dataset-centroids distance-fn [:wins :draws] dataset-points) "assignments"))))))
 
 
 (deftest test-dataset-assignments-seq
@@ -107,7 +107,7 @@
           dataset (ds/->dataset centroids)
           expected [[0 1 2] [0 1 2]]]
       (is (= expected
-             (map :assignments (dataset-assignments-seq dataset distance-fn [:wins :losses :draws] [dataset dataset]))))))
+             (map #(% "assignments") (dataset-assignments-seq dataset distance-fn [:wins :losses :draws] [dataset dataset]))))))
   (testing "That the assignments are correct event when the dataset ordering isn't the same as the centroid ordering."
     (let [centroids [{:losses 0 :draws 0 :wins 2}
                      {:losses 2 :draws 0 :wins 0}
@@ -120,7 +120,7 @@
           dataset-points (ds/->dataset points)
           expected [[0 1 2] [0 1 2]]]
       (is (= expected
-             (map :assignments (dataset-assignments-seq dataset-centroids distance-fn [:wins :losses :draws] [dataset-points dataset-points]))))))
+             (map #(% "assignments") (dataset-assignments-seq dataset-centroids distance-fn [:wins :losses :draws] [dataset-points dataset-points]))))))
     (testing "That the assignments are correct event when getting only a subset of the columns."
       (let [centroids [{:losses 0 :draws 0 :wins 2}
                        {:losses 2 :draws 0 :wins 0}
@@ -134,7 +134,7 @@
             dataset-points (ds/->dataset points)
             expected [[0 1 2 0] [0 1 2 0]]]
         (is (= expected 
-               (map :assignments (dataset-assignments-seq dataset-centroids distance-fn [:wins :draws] [dataset-points dataset-points])))))))
+               (map #(% "assignments") (dataset-assignments-seq dataset-centroids distance-fn [:wins :draws] [dataset-points dataset-points])))))))
 
 
 ;; Given generators for centroids it should be possible to implement an 
@@ -157,7 +157,7 @@
 ;;
 ;; In order to run the algorithm we need to have datasets available.
 ;; In particular we need to be able to write a small dataset.
-(defn write-dataset
+(defn write-dataset-as-csv
   [filename dataset]
   (when (not (.exists (clojure.java.io/file filename)))
     (println "Writing dataset to" filename)
@@ -210,7 +210,7 @@
 (defn create-small-testing-dataset!
   "Creates the small test dataset."
   []
-  (write-dataset small-dataset-filename (small-testing-dataset)))
+  (write-dataset-as-csv small-dataset-filename (small-testing-dataset)))
 
 ;; Since we are running multiple tests we also want to be able 
 ;; to clean up after ourselves. So we need a way to remove the 
@@ -236,7 +236,7 @@
 (defn create-very-small-testing-dataset!
   "Creates the small test dataset."
   []
-  (write-dataset very-small-dataset-filename (very-small-testing-dataset)))
+  (write-dataset-as-csv very-small-dataset-filename (very-small-testing-dataset)))
 
 ;; Since we are running multiple tests we also want to be able 
 ;; to clean up after ourselves. So we need a way to remove the 
@@ -279,7 +279,6 @@
   (with-small-dataset
     (testing "That the right number of centroids are returned."
       (let [result (k-means small-dataset-filename small-k)]
-        (println result)
         (is (= small-k (ds/row-count (:centroids result))))))
     (testing "That the centroids are unique."
       (is (= (count (set (ds/rowvecs (:centroids (k-means small-dataset-filename small-k))))) small-k)))
@@ -319,7 +318,7 @@
 (defn create-large-testing-dataset!
   "Creates the large test dataset."
   []
-  (write-dataset large-dataset-filename (large-testing-dataset)))
+  (write-dataset-as-csv large-dataset-filename (large-testing-dataset)))
 
 ;; We would like to be able to setup and destroy the 
 ;; files between testing runs. Typing out all the setup 

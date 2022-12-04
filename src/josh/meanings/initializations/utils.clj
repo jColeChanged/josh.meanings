@@ -1,23 +1,33 @@
 (ns josh.meanings.initializations.utils
-  (:require [bigml.sampling.reservoir :as res-sample]
-            [tech.v3.dataset :as ds]
-            [clojure.tools.logging :as log]
-            [josh.meanings.persistence :as persist]
-            [clojure.spec.alpha :as s]))
+  (:require
+   [bigml.sampling.reservoir :as res-sample]
+   [tech.v3.dataset :as ds]
+   [clojure.tools.logging :as log]
+   [josh.meanings.persistence :as persist]
+   [clojure.spec.alpha :as s]
+   [josh.meanings.specs :as specs]))
 
-(def t-config :josh.meanings.specs/configuration)
-(def t-points :josh.meanings.specs/points)
+(def t-dataset :josh.meanings.specs/dataset)
+(def t-config  :josh.meanings.specs/configuration)
+(def t-points  :josh.meanings.specs/points)
 
+(defn vector->dataset
+  "Converts a vector of points to a dataset with col-name column names."
+  [data col-names]
+  (log/info "Converting centroids vector to dataset.")
+  (ds/->dataset (map (partial zipmap col-names) data)))
 
-(s/fdef centroids->dataset :args (s/cat :conf t-config :results t-points))
 (defn centroids->dataset
-  [conf results]
-  {:pre [(= (count results) (:k conf))]
+  "Converts a vector of points to a dataset."
+  [s results]
+  {:pre [(= (count results) (:k s))]
    :post [(= (count results) (ds/row-count %))]}
-  (ds/->dataset
-   (persist/ds-seq->rows->maps
-    (persist/read-dataset-seq conf :points)
-    results)))
+  (vector->dataset results (.column-names s)))
+
+(s/fdef centroids->dataset 
+  :args (s/cat :conf t-config :results t-points)
+  :ret t-dataset)
+
 
 
 (defn uniform-sample

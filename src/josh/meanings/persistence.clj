@@ -59,19 +59,30 @@
         format (filename->format filename)
         reader-fn (-> formats format :reader)]
     (log/info "Loading" filename "with" format)
-    (reader-fn filename {:key-fn keyword})))
+    (reader-fn filename)))
 
 (defn dataset-seq->column-names
   [ds-seq]
   (ds/column-names (first ds-seq)))
+
+(defn write-dataset
+  [k-means-state key dataset]
+  (let [filename (key k-means-state)]
+    (log/info "About to write" key "with data" dataset)
+    (log/info "Writing to" filename)
+    (ds/write! dataset filename)
+    (log/info "Finished writing " filename)))
+
 
 (defn write-dataset-seq
   [k-means-state key dataset]
   (let [filename (key k-means-state)
         format (filename->format filename)
         writer-fn! (-> formats format :writer)]
-    (log/info "Writing to" filename "with" format)
-    (writer-fn! filename dataset)))
+    (log/info "About to write" key "with data" dataset)
+    (log/info "Writing to" filename)
+    (writer-fn! filename dataset)
+    (log/info "Finished writing " filename)))
 
 
 (defn change-extension
@@ -111,11 +122,3 @@
 (def centroids-filename (generate-filename "centroids"))
 
 (def assignments-filename (generate-filename "assignments"))
-
-
-;; Read and realize centroids from a file.
-(defn read-centroids-from-file
-  [k-means-state]
-  (ds/rowvecs
-   (ds/->dataset
-    (:centroids k-means-state) {:key-fn keyword :file-type :csv :header-row? true})))

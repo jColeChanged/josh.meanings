@@ -49,7 +49,7 @@
   ]
   PClusterModel 
   (save-model [this filename] (spit filename (pr-str this)))
-  (load-assignments [this] (ds/->dataset (:assignments (:configuration this)) {:key-fn keyword}))
+  (load-assignments [this] (ds/->dataset (:assignments (:configuration this))))
   (classify [this point] (apply min-key (map (partial (:distance-fn point)) (:centroids this)))))
 
 (defn load-model
@@ -76,7 +76,6 @@
             points
             centroids
             assignments
-
             format ;; The format that will be used to store the points, centroids and assignments.
             init   ;; The initialization method that will be used to generate the initial centroids.
             distance-key  ;; The key that will be used to determine the distance function to use.
@@ -90,7 +89,7 @@
   (load-centroids
     [this]
     (-> (:centroids this)
-        (ds/->dataset {:header-row? true :key-fn keyword})))
+        (ds/->dataset {:header-row? true})))
 
   (load-points
     [this]
@@ -102,9 +101,10 @@
 
   (column-names
     [this]
-    (remove #{:assignments (keyword "q(x)")}
-            (-> (:centroids this)
-                (ds/->dataset {:header-row? true :key-fn keyword})
+    (remove #{"assignments" "q(x)"}
+            (-> this
+                (persist/read-dataset-seq :points) 
+                first
                 (ds/column-names)))))
 
 
@@ -114,9 +114,12 @@
   (assoc config :size-estimate (reduce + (map ds/row-count  (persist/read-dataset-seq config :points)))))
 
 (defn initialize-centroids!
-  [k-means-state]
-  (let [centroids (initialize-centroids k-means-state)]
-    (persist/write-dataset-seq k-means-state :centroids centroids)
+  "Calls initialize-centroids and writes the returned dataset to the centroids file."
+  [^KMeansState s]
+  (let [centroids (initialize-centroids s)]
+    (log/info "Initialized centroids.  Now persisting to file.")
+    (log/info "Dataset is " centroids)
+    (persist/write-dataset s :centroids centroids) 
     centroids))
 
 
@@ -145,7 +148,7 @@
      (persist/csv-seq-filename->format-seq (KMeansState.
                                             k
                                             points-file
-                                            (persist/change-extension (persist/centroids-filename points-file) :csv)
+                                            (persist/change-extension (persist/centroids-filename points-file) format)
                                             (persist/change-extension (persist/assignments-filename points-file) format)
                                             format
                                             init
@@ -254,23 +257,23 @@
   "Updates the assignments dataset with the new assignments."
   [centroids distance-fn cols points]
   (let [ds->rows #(-> % (ds/select-columns cols) ds/rowvecs)]
-    (assoc points :assignments (assignments (ds->rows centroids) distance-fn (ds->rows points)))))
+    (assoc points "assignments" (assignments (ds->rows centroids) distance-fn (ds->rows points)))))
 
 (s/fdef dataset-assignments 
   :args (s/cat :centroids ds/dataset?
                :distance-fn #(or (fn? %) (ifn? %)) 
-               :cols (s/coll-of keyword? :min-count 1)
+               :cols (s/coll-of #(or (string? %) (keyword? %)) :min-count 1)
                :points ds/dataset?)
   :ret ds/dataset?
   :fn (s/and
        ;; Test that the returned dataset contains an assignments column
-        #(contains? (ds/column-names (:ret %)) :assignments)
+       #(contains? (ds/column-names (:ret %)) "assignments")
         ;; Test that the number of assignments in the returned dataset is equal to the number of points
-        #(= (-> % :args :points ds/row-count) (-> % :ret (ds/select-columns [:assignments]) ds/row-count))
+       #(= (-> % :args :points ds/row-count) (-> % :ret (ds/select-columns ["assignments"]) ds/row-count))
         ;; Test that the assignments in the returned dataset are gettable in centroids
-        #(let [centroids (-> % :args :centroids ds/value-reader)]
-               assignments (-> % :ret :assignments)
-           (every? (fn [a] (contains? centroids a)) assignments)))) 
+       #(let [centroids (-> % :args :centroids ds/value-reader)]
+          assignments (-> % :ret :assignments)
+          (every? (fn [a] (contains? centroids a)) assignments)))) 
 
 
 (defn dataset-assignments-seq
@@ -281,7 +284,7 @@
 (s/fdef dataset-assignments-seq
   :args (s/cat :centroids ds/dataset?
                :distance-fn #(or (fn? %) (ifn? %)) 
-               :cols (s/coll-of keyword? :min-count 1)
+               :cols (s/coll-of #(or (string? %) (keyword? %)) :min-count 1)
                :points-seq (s/coll-of ds/dataset? :min-count 1))
   :ret (s/coll-of ds/dataset? :min-count 1)
   :fn (s/and
@@ -342,18 +345,18 @@
   (let [column-names (persist/dataset-seq->column-names (persist/read-dataset-seq s :assignments))]
     (ds/drop-columns
      (ds-reduce/group-by-column-agg
-      :assignments
+      "assignments"
       (zipmap
        column-names
        (map ds-reduce/mean column-names))
       (persist/read-dataset-seq s :assignments))
-     [:assignments])))
+     ["assignments"])))
 
 
 (defn recalculate-means
   [^KMeansState s]
   (let [centroids (update-centroids s)]
-    (persist/write-dataset-seq s :centroids centroids)
+    (persist/write-dataset s :centroids centroids)
     centroids))
 
 (defn stabilized?

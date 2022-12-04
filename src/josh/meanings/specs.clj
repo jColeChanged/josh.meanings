@@ -47,6 +47,7 @@
                    #(gen/fmap
                      (partial apply gen-dataset)
                      (s/gen (s/cat :k ::k :d ::d)))))
+
 (s/def ::dataset-seq
   (s/with-gen
     (s/coll-of ::dataset)
