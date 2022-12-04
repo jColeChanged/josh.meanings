@@ -5,25 +5,28 @@
   (:require
    [josh.meanings.protocols.clustering-state :refer [PClusteringState]]
    [josh.meanings.persistence :as persist]
-   [tech.v3.dataset :as ds]))
+   [tech.v3.dataset :as ds]
+   
+   ))
 
 
 (defrecord KMeansState
-  [k                 ;; Number of clusters 
-   points            ;; filename of the points dataset
-   centroids         ;; filename of the centroids dataset
-   assignments       ;; filename of the assignments dataset
-   format            ;; The format that will be used to store the points, centroids and assignments.
-   init              ;; The initialization method that will be used to generate the initial centroids.
-   distance-key      ;; The key that will be used to determine the distance function to use.
-   distance-fn       ;; The distance function itself, derived from the distance-key.
-   m                 ;; The chain length to use when doing monte carlo sampling if applicable.
-   k-means           ;; A reference to the k-means function; sometimes k means classification requires recursion.
-   size-estimate     ;; An estimate of the size of the dataset.  Sometimes useful in initialization methods and sanity checks. 
-   ]
+           [k                 ;; Number of clusters 
+            points            ;; filename of the points dataset
+            centroids         ;; filename of the centroids dataset
+            assignments       ;; filename of the assignments dataset
+            format            ;; The format that will be used to store the points, centroids and assignments.
+            init              ;; The initialization method that will be used to generate the initial centroids.
+            distance-key      ;; The key that will be used to determine the distance function to use.
+            distance-fn       ;; The distance function itself, derived from the distance-key.
+            m                 ;; The chain length to use when doing monte carlo sampling if applicable.
+            k-means           ;; A reference to the k-means function; sometimes k means classification requires recursion.
+            size-estimate     ;; An estimate of the size of the dataset.  Sometimes useful in initialization methods and sanity checks. 
+            col-names         ;; The column names of the dataset used for clustering.
+            ]
 
   PClusteringState
-  
+
   (load-centroids
     [this]
     (-> (:centroids this)
@@ -43,4 +46,8 @@
             (-> this
                 (persist/read-dataset-seq :points)
                 first
-                (ds/column-names)))))
+                (ds/column-names))))
+  
+  (configuration 
+   [this]
+   (select-keys this [:k :init :distance-key :m  :col-names])))

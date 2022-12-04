@@ -3,6 +3,8 @@
             [josh.test.core :refer [check?]]
             [tech.v3.dataset :as ds]
             [josh.meanings.distances :refer [get-distance-fn]]
+            [josh.meanings.protocols.savable :refer [Savable]]
+            [josh.meanings.protocols.classifier :refer [load-assignments load-centroids]]
             [josh.meanings.kmeans :refer [sum
                                           min-index
                                           cost
@@ -18,6 +20,7 @@
                                           calculate-objective
                                           recalculate-means
                                           regenerate-assignments!]]
+            [josh.meanings.records.cluster-result]
             [josh.meanings.persistence :refer :all]
             [clojure.spec.test.alpha :as stest])
   (:use [clojure.data.csv :as csv]
@@ -153,7 +156,11 @@
       (is (= 2.0 (cost centroids distance-fn 0 point)))
       (is (= 0.0 (cost centroids distance-fn 1 point)))
       (is (= 1.0 (cost centroids distance-fn 2 point))))))
-      
+
+(deftest test-configuration-identity 
+  (testing "That the configuration returned matches the configuration used to generate the cluster result."))
+
+
 ;; Given generators for centroids it should be possible to implement an 
 ;; identity test.check which checks an equivalence relation between finding 
 ;; the index of a value and classifying a value.
@@ -294,12 +301,12 @@
 
 (deftest test-equal-inputs-have-equal-assignments
   (with-small-dataset
-    (testing "That the right number of centroids are returned."
-      (let [result (k-means small-dataset-filename small-k)]
-        (is (= small-k (ds/row-count (:centroids result))))))
-    (testing "That the centroids are unique."
-      (is (= (count (set (ds/rowvecs (:centroids (k-means small-dataset-filename small-k))))) small-k)))
-    (let [assignments ((ds/->dataset "assignments.test.small.parquet" {:key-fn keyword}) :assignments)]
+    (let [cluster-result (k-means small-dataset-filename small-k :m 200)
+          assignments ((ds/->dataset "assignments.test.small.parquet" {:key-fn keyword}) :assignments)]
+      (testing "That the right number of centroids are returned."
+        (is (= small-k (ds/row-count (load-centroids cluster-result)))))
+      (testing "That the centroids are unique."
+        (is (= (count (set (ds/rowvecs (load-centroids cluster-result)))) small-k)))
       (testing "[1 2 3] are all assigned the same value."
         (is (apply = (take 4 assignments))))
       (testing "[4 5 6] are all assigned the same value."
@@ -307,10 +314,11 @@
       (testing "[7 8 9] are assigned the same value."
         (is (apply = (take 3 (drop 10 assignments)))))))
   (with-very-small-dataset
-    (testing "That the right number of centroids are returned."
-      (is (= (ds/row-count (:centroids (k-means very-small-dataset-filename small-k))) small-k)))
-    (testing "That the centroids are unique."
-      (is (= (count (set (ds/rowvecs (:centroids (k-means very-small-dataset-filename small-k))))) small-k)))))
+    (let [cluster-result (k-means very-small-dataset-filename small-k :m 200)]
+      (testing "That the right number of centroids are returned."
+        (is (= (ds/row-count (load-centroids cluster-result)) small-k)))
+      (testing "That the centroids are unique."
+        (is (= (count (set (ds/rowvecs (load-centroids cluster-result)))) small-k))))))
 
 (def large-dataset-filename "test.large.csv")
 (def large-dataset-k 3)
@@ -366,31 +374,10 @@
         (regenerate-assignments! state)))))
 
 
-
-(deftest test-conversion-of-csv-to-format
+(deftest testing-cluster-result-configuration-identity
   (with-small-dataset
-    (let [state (initialize-k-means-state small-dataset-filename small-k {})]
-      (let [new-state (csv-seq-filename->format-seq state :points)
-            original-dataset (read-dataset-seq state :points)
-            new-dataset (read-dataset-seq new-state :points)]
-        (testing "Dataset seqs are returned."
-          (is (every? ds/dataset? original-dataset))
-          (is (every? ds/dataset? new-dataset)))
-        (testing "Have the same number of datasets"
-          (is (count original-dataset) (count new-dataset)))
-        (testing "Have the same total rows"
-          (is (reduce + (map count original-dataset))
-              (reduce + (map count new-dataset)))))))
-  (with-large-dataset
-    (let [state (initialize-k-means-state large-dataset-filename large-dataset-k {})]
-      (let [new-state (csv-seq-filename->format-seq state :points)
-            original-dataset (read-dataset-seq state :points)
-            new-dataset (read-dataset-seq new-state :points)]
-        (testing "Dataset seqs are returned."
-          (is (every? ds/dataset? original-dataset))
-          (is (every? ds/dataset? new-dataset)))
-        (testing "Have the same number of datasets"
-          (is (count original-dataset) (count new-dataset)))
-        (testing "Have the same total rows"
-          (is (reduce + (map count original-dataset))
-              (reduce + (map count new-dataset))))))))
+    (testing "That the configuration keys used in KMeansState matches the keys in the result." 
+      (let [config [:m 200 :distance-key :emd :init :afk-mc]
+            result (apply k-means small-dataset-filename small-k config)]
+        (for [key (keys config)]
+          (is (= (key config) (key result))))))))

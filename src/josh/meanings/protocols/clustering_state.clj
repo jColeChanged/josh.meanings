@@ -3,6 +3,7 @@
 
 (defprotocol PClusteringState
   
+  (configuration [this])
   (column-names [this])
   (load-centroids [this])
   (load-points [this])

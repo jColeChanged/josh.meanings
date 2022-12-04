@@ -1,0 +1,1 @@
+#josh.meanings.records.cluster_result.ClusterResult{:centroids "test/josh/meanings/records/cluster_result_centroids.csv", :assignments "test/josh/meanings/records/cluster_result_assignments.csv", :format :csv, :cost 0.0, :configuration {:m 10, :k 2, :col-names ["col1" "col2" "col3"], :distance-key :euclidean, :init :random}}

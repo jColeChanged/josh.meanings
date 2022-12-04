@@ -6,10 +6,10 @@
    non-deterministic and iterative. Every member of a cluster is closer 
    to its cluster center than the center of any other cluster.
 
-  The choice of initial partition can greatly affect the final clusters 
-  that result, in terms of inter-cluster and intracluster distances and 
-  cohesion. As a result k means is best run multiple times in order to 
-  avoid the trap of a local minimum."
+   The choice of initial partition can greatly affect the final clusters 
+   that result, in terms of inter-cluster and intracluster distances and 
+   cohesion. As a result k means is best run multiple times in order to 
+   avoid the trap of a local minimum."
 
   (:require [clojure.spec.alpha :as s :refer [valid?]]
             [clojure.test.check.generators :as gen]
@@ -18,6 +18,8 @@
             [clojure.tools.logging :as log]
             [josh.meanings.records.clustering-state :refer [->KMeansState]]
             [josh.meanings.records.cluster-result :refer [map->ClusterResult]]
+            [josh.meanings.protocols.savable :refer [Savable]]
+            [josh.meanings.protocols.classifier :refer [Classifier]]
             [josh.meanings.initializations
              [niave :as init-naive]
              [mc2 :as init-mc2]
@@ -32,9 +34,10 @@
    [josh.meanings.persistence :as persist]
    [josh.meanings.initializations.niave]
    [clojure.java.io :as io]
-   [tech.v3.dataset.math :as ds-math])
+   [tech.v3.dataset.math :as ds-math]) 
   (:import 
-   [josh.meanings.records.clustering_state KMeansState]))
+   [josh.meanings.records.clustering_state KMeansState]
+   [josh.meanings.records.cluster_result ClusterResult]))
 
 (set! *warn-on-reflection* true)
 
@@ -50,64 +53,71 @@
   
 
 
-
-(defn load-model
-  [filename]
-  (read-string (slurp filename)))
-
-
-(defn estimate-size
-  "Update the number of records in the dataset."
-  [config]
-  (assoc config :size-estimate (sum (map ds/row-count (persist/read-dataset-seq config :points)))))
-
 (defn initialize-centroids!
   "Calls initialize-centroids and writes the returned dataset to the centroids file."
   [^KMeansState s]
   (let [centroids (initialize-centroids s)]
-    (log/info "Initialized centroids.  Now persisting to file.")
-    (log/info "Dataset is " centroids)
     (persist/write-dataset s :centroids centroids) 
     centroids))
 
+(def default-run-count 3)
 
 
 (declare k-means)
 
-(def default-format :parquet)
-(def default-init   :afk-mc)
-(def default-distance-fn :emd)
-(def default-run-count 3)
+
+
+
+(def default-format       :parquet)
+(def default-init         :afk-mc)
+(def default-distance-key :emd)
+(def default-chain-length  200)
+
+(def default-options
+  {:format       default-format
+   :init         default-init
+   :distance-key default-distance-key
+   :chain-length default-chain-length})
+
+
+
+(defn estimate-size
+  "Estimates the number of rows in the datset at filepath."
+  [filepath]
+  (sum (map ds/row-count (persist/read-dataset-seq filepath))))
+
+(defn column-names
+  [filepath]
+  (remove #{"assignments" "q(x)"} (ds/column-names (first (persist/read-dataset-seq filepath)))))
+
+
+(defn validate-options
+  "Validates the given options map, ensuring that all required options are present and valid."
+  [options]
+  (let [format (or (:format options) default-format)]
+    (is (contains? persist/formats format))))
 
 (defn initialize-k-means-state
   "Sets initial configuration options for the k means calculation."
   [points-file k options]
-  (log/debug "Validating k-means options")
-  (let [format (or (:format options) default-format)
-        init (or (:init options) default-init)
-        distance-key (or (:distance-fn options) default-distance-fn)
+  {:pre [(map? options) (validate-options options)]}
+  (let [{:keys [format init distance-key m]} (merge default-options options)
         distance-fn (jmdistance/get-distance-fn distance-key)
-        m (or (:m options) 200)]
-    (when (not (contains? persist/formats format))
-      (throw (Exception. (str "Invalid format provided. Format must be one of " (keys persist/formats)))))
-    (log/debug "Validated k mean options")
+        points-file (persist/convert-file points-file format)]
     (log/info "Generating k mean configuration")
-    (->
-     (persist/csv-seq-filename->format-seq (->KMeansState
-                                            k
-                                            points-file
-                                            (persist/change-extension (persist/centroids-filename points-file) format)
-                                            (persist/change-extension (persist/assignments-filename points-file) format)
-                                            format
-                                            init
-                                            distance-key
-                                            distance-fn
-                                            m
-                                            k-means
-                                            nil) :points)
-     estimate-size)))
-
-
+    (->KMeansState
+     k
+     points-file
+     (persist/centroids-filename points-file)
+     (persist/assignments-filename points-file)
+     format
+     init
+     distance-key
+     distance-fn
+     m
+     k-means
+     (estimate-size points-file)
+     (column-names points-file))))
 
 
 (defn min-index
@@ -388,31 +398,30 @@
 
 
 
-(defn k-means-via-file
-  [points-filepath k & options]
-  {:pre [(is (valid? :josh.meanings.specs/k k))
-         (is (valid? string? points-filepath))]
-   :post [(= (ds/row-count (:centroids %)) k)
-          (= (count (set (ds/rowvecs (:centroids %)))) k)]}
-  (let [k-means-state (initialize-k-means-state points-filepath k (apply hash-map options))
-        initial-centroids (initialize-centroids! k-means-state)]
-    (log/info "Got initial centroids" initial-centroids)
-    (log/info "Initial centroids has" (ds/row-count initial-centroids) "rows")
-    (loop [centroids initial-centroids
-           centroids-history []]
-      (log/info "Loop is now at" (ds/row-count centroids) "rows")
+(defn k-means-via-file 
+  (^ClusterResult [points-filepath k & options]
+   {:pre [(is (valid? :josh.meanings.specs/k k))
+          (is (valid? string? points-filepath))]}
+   (let [^KMeansState k-means-state (initialize-k-means-state points-filepath k (apply hash-map options))
+         initial-centroids (initialize-centroids! k-means-state)]
+     (log/info "Got initial centroids" initial-centroids)
+     (log/info "Initial centroids has" (ds/row-count initial-centroids) "rows")
+     (loop [centroids initial-centroids
+            centroids-history []]
+       (log/info "Loop is now at" (ds/row-count centroids) "rows")
 
-      (regenerate-assignments! k-means-state)
-      (log/info "Assignments after assign-clusters is " (persist/read-dataset-seq k-means-state :assignments))
-      (let [new-centroids (recalculate-means k-means-state)]
-        (log/info "Got new centroids" new-centroids)
-        (log/info "New centroids has" (ds/row-count new-centroids) "rows")
-        (if (stabilized? new-centroids centroids)
-          (map->ClusterResult
-           {:centroids new-centroids
-            :cost (calculate-objective k-means-state)
-            :configuration k-means-state})
-          (recur new-centroids (conj centroids-history centroids)))))))
+       (regenerate-assignments! k-means-state)
+       (log/info "Assignments after assign-clusters is " (persist/read-dataset-seq k-means-state :assignments))
+       (let [new-centroids (recalculate-means k-means-state)]
+         (log/info "Got new centroids" new-centroids)
+         (log/info "New centroids has" (ds/row-count new-centroids) "rows")
+         (if (stabilized? new-centroids centroids)
+           (map->ClusterResult
+            {:centroids (:centroids k-means-state)
+             :assignments (:assignments k-means-state)
+             :cost (calculate-objective k-means-state)
+             :configuration (.configuration k-means-state)})
+           (recur new-centroids (conj centroids-history centroids))))))))
 
 
 ;; We never want to rely on things fitting in memory, but in practice 

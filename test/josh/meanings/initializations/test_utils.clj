@@ -76,7 +76,8 @@
                                                    identity
                                                    nil
                                                    identity
-                                                   100))]
+                                                   100
+                                                   []))]
       (is (< 0 (:m k-means)))
       (is (< (:m k-means) (:size-estimate k-means)))))
   (testing "That when chain lengths are already set the default is not used."
@@ -91,6 +92,7 @@
                                                    identity
                                                    1000
                                                    identity
-                                                   100))]
+                                                   100
+                                                   []))]
       (is (=  (:m k-means) 1000)))))
 

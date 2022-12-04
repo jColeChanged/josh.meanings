@@ -160,7 +160,7 @@
   [conf]
   {:pre [(contains? conf :m) (contains? conf :k) (contains? conf :distance-fn)]
    :post [(= (:k conf) (count %))]}
-  (log/info "Performing afk-mc initialization")
+  (log/info "Performing afk-mc initialization with" conf)
   (log/info "Sampling cluster from dataset for initial centroid choice")
   (let [cluster (first (uniform-sample (p/read-dataset-seq conf :points) 1))]
     (log/info "Got initial cluster" cluster)
@@ -170,6 +170,8 @@
           sp (samples (p/read-dataset-seq conf :points) k m)
           clusters
           (loop [cs [cluster] rsp sp]
+            (log/info "Remaning samples are" rsp)
+            (log/info "Latest new cluster is" (last cs))
             (let [weight-fn (make-weight-fn (:distance-fn conf) cs)]
             (log/info "Performing round of mcmc sampling")
             (if (empty? rsp)

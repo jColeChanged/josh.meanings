@@ -21,7 +21,9 @@ the computation cannot be persisted to disk.
 ## Getting Started
 
 ```
-(require `[josh.meanings.kmeans :refer [k-means k-means-seq load-model]])
+(require `[josh.meanings.kmeans :refer [k-means k-means-seq]
+         `[josh.meanings.protocols.savable :refer [save-model]]
+         `[josh.meanings.protocols.classifer :refer [classify load-centroids load-assignments]])
 
 
 ;; Get a dataset.  You can pass in your dataset under a variety of formats. 
@@ -42,17 +44,17 @@ the computation cannot be persisted to disk.
 (def model (apply min-key :cost (take k-tries (k-means-seq cluster-dataset-name k)))))
 
 ;; Once you have a model you can save it.
-;; (def model-path (.save-model model))
+(def model-path (.save-model model))
 
 ;; Later you can load that model
 (def model (load-model model-path))
 
 ;; To load the assignments just
-;; (.load-assignment model)
+(.load-assignments model)
 
 ;; To classify a new entry
-;; (.classify model [1 2 3])
+(.classify model [1 2 3])
 
 ;; To view the centroids
-(:centroids model)
+(.load-centroids model)
 ```

@@ -3,7 +3,54 @@
 All notable changes to this project will be documented in this file. 
 This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 For releases before version [1.0.0] this project *did not* follow [semver](https://semver.org/).  
-For releases after version 1.0.0 this project *will* follow semver.
+For releases after version 1.0.0 this project *will* follow semver, with the addition that minor 
+releases might only add additional tests and/or documentation updates rather than bug fixes.
+
+## [1.0.0] - 2022-12-04
+
+This release improves the usability of loading and saving clustered models.
+It is potentially backward incompatible with previous releases because it 
+changes the returned output of the cluster result record.
+
+## Added
+
+ - `ClusterResult` now provides an `:assignments` field which is a filepath to an assignments dataset.
+ - `ClusterResult` now provides a `.load-centroids` method.
+
+## Changed
+
+ - `ClusterResult` now has a filepath rather than a `tech.ml.dataset` under the `:centroids` key.
+ - `ClusterResult` `:configuration` field now contains a map rather than the full clustering state record.  
+    This map contains the following configuration fields: `:k`, `:m`, `:distance-key`, `:init` and `:col-names`.
+ -  `ClusterResult` `.load-assignments` now returns a sequence of sequences.
+ -  The `ClusterResult` `classify` method now supports dynamic dispatch.  When given a vector it will assume that 
+   vector has fields in `:col-name` ordering.  When given a map, it will extract fields in `:col-name` ordering 
+   before calling classify.
+
+## Fixed
+
+  - The `load-model` function would fail to load persisted cluster results from disk because when 
+    printed to a file the output of a dataset would have pretty printing which conflicted with the 
+    reader syntax.
+  - Calling `.load-assignments` on a massive cluster result should no longer triggers out of memory 
+    issues.
+
+## Testing
+
+ - Unit testing added for `.save-model`.
+ - Unit testing added for `load-model`.
+ - Unit testing added for `.classify`.
+ - Unit testing added for `.load-assignments`.
+ - Unit testing added for `.load-centroids`.
+ - Unit testing added for the `ClusterResult` `:configuration` field validity.
+
+
+## [0.3.4] - 2022-12-03
+
+## Fixed
+
+ - Expands unit test coverage.
+ - Fixes a bug which could cause keywords in datasets to trigger clustering failures.
 
 ## [0.3.4] - 2022-12-03
 

@@ -6,6 +6,7 @@
    [josh.meanings.distances :refer [distance-keys]]
    [josh.meanings.persistence :refer [formats]]
    [josh.meanings.initializations.core :refer [initialization-keys]]
+   [josh.file.utils :as futils]
    [tech.v3.dataset :as ds]
    [tech.v3.datatype.functional :as dfn]))
 
@@ -48,6 +49,10 @@
                      (partial apply gen-dataset)
                      (s/gen (s/cat :k ::k :d ::d)))))
 
+
+(s/def ::col-name string?)
+(s/def ::col-names (s/coll-of ::col-name :distinct true))
+
 (s/def ::dataset-seq
   (s/with-gen
     (s/coll-of ::dataset)
@@ -77,6 +82,9 @@
 
 (s/def ::format-key (set (keys formats)))
 
+
+
+
 (s/def ::configuration
   (s/keys :req-un
           [:josh.meanings.specs/k
@@ -89,3 +97,24 @@
            ifn?
            :josh.meanings.specs/m
            ifn?]))
+
+
+
+(s/def ::filename (s/and string? futils/file?))
+
+(s/def ::cost number?)
+
+(s/def ::cluster-result-configuration
+  (s/keys :req-un
+          [:josh.meanings.specs/k
+           :josh.meanings.specs/m
+           :josh.meanings.specs/distance-key
+           :josh.meanings.specs/init]))
+
+(s/def ::cluster-result
+  (s/keys :req-un 
+          [:josh.meanings/filename
+           :josh.meanings/filename
+           :josh.meanings/format-key
+           :josh.meanings/cost
+           :josh.meanings/cluster-result-configuration]))
