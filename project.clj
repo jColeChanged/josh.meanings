@@ -3,7 +3,7 @@
   :url "https://github.com/jcolechanged/josh.meanings"
   :license {:name "The MIT License"
             :url "https://opensource.org/licenses/MIT"}
-  :dependencies [[org.clojure/clojure "1.10.3"]
+  :dependencies [[org.clojure/clojure "1.11.1"]
                  [org.clojure/data.csv "1.0.1"]
                  [org.clojure/tools.logging "1.2.4"]
                  [org.clojure/test.check "1.1.1"]

@@ -10,14 +10,13 @@
   (read-dataset-seq state :filename)
    
   (write-dataset-seq state :filename [dataset1 dataset2 ...])"
-  (:require
-   [clojure.tools.logging :as log]
-   [clojure.string]
-   [clojure.java.io]
-   [tech.v3.dataset :as ds]
-   [tech.v3.libs.arrow :as ds-arrow]
-   [tech.v3.dataset.io.csv :as ds-csv]
-   [tech.v3.libs.parquet :as ds-parquet])
+  (:require [clojure.java.io]
+            [clojure.string]
+            [clojure.tools.logging :as log]
+            [tech.v3.dataset :as ds :refer [select-columns]]
+            [tech.v3.dataset.io.csv :as ds-csv]
+            [tech.v3.libs.arrow :as ds-arrow]
+            [tech.v3.libs.parquet :as ds-parquet])
   (:gen-class))
 
 ;; CSV was extremely slow. Arrow failed to load really large files.
@@ -43,7 +42,8 @@
     :reader (fn [path]
               (ds-arrow/stream->dataset-seq path {:format :ipc}))
     :suffix ".arrows"}
-   :csv {:writer (fn [path ds-seq] (ds/write! ds-seq path))
+   :csv {:writer (fn [path ds-seq]  
+                   (ds/write! (apply ds/concat-copying (first ds-seq) (rest ds-seq)) path))
          :reader ds-csv/csv->dataset-seq
          :suffix ".csv"}})
 
@@ -70,6 +70,17 @@
   (.exists (clojure.java.io/file filename)))
 
 
+(defn select-columns-seq
+  "Selects columns from each dataset in the sequence.
+
+  The `datasets-seq` argument should be a sequence of datasets. The `col-names`
+  argument should be a collection of column names to select from each dataset.
+
+  Returns a sequence of datasets containing the specified columns."
+  [^clojure.lang.Seqable datasets-seq col-names]
+  (map (fn [ds] (ds/select-columns ds col-names)) datasets-seq))
+
+
 (defn read-dataset-seq
   "Loads the dataset at the file path in key.
    
@@ -93,8 +104,10 @@
      (log/info "Loading" filename "with" format)
      (reader-fn filename)))
   ([^clojure.lang.IPersistentMap s ^clojure.lang.Keyword key]
-   {:pre [(map? s) (keyword? key)]}
-   (read-dataset-seq (key s))))
+   {:pre [(map? s) (keyword? key)]} 
+   (if (= key :points)
+     (select-columns-seq (read-dataset-seq (key s)) (:col-names s))
+     (read-dataset-seq (key s)))))
 
 (defn dataset-seq->column-names
   "Returns a sequence of column names for a given dataset sequence.
