@@ -88,7 +88,8 @@
 
 (defn column-names
   [filepath]
-  (remove #{"assignments" "q(x)"} (ds/column-names (first (persist/read-dataset-seq filepath)))))
+  (vec (remove #{"assignments" "q(x)"} (ds/column-names (first (persist/read-dataset-seq filepath))))))
+
 
 
 (defn validate-options

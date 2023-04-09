@@ -13,19 +13,18 @@
    in practice computing the first D^2 sampling distribution ends up paying 
    for itself by reducing the chain length necessary to get convergence 
    guarantees."
-  (:require
-   [clojure.spec.alpha :as s]
-   [tech.v3.dataset :as ds]
-   [tech.v3.dataset.reductions :as dsr]
-   [clojure.tools.logging :as log]
-   [josh.meanings.persistence :as p]
-   [josh.meanings.initializations.utils :refer [centroids->dataset weighted-sample uniform-sample add-default-chain-length]]
-   [josh.meanings.initializations.core :refer [initialize-centroids]]
-   [josh.meanings.specs :as specs]))
+  (:require [clojure.spec.alpha :as s]
+            [clojure.tools.logging :as log :refer [info]]
+            [josh.meanings.initializations.core :refer [initialize-centroids]]
+            [josh.meanings.initializations.utils :refer [add-default-chain-length
+                                                         centroids->dataset uniform-sample weighted-sample]]
+            [josh.meanings.persistence :as p]
+            [tech.v3.dataset :as ds]
+            [tech.v3.dataset.reductions :as dsr]))
 
 
 (defn- point 
-  "Returns a poiint from a row, dropping q(x) entry."
+  "Returns a point from a row, dropping q(x) entry."
   [row] 
   (butlast row))
 
@@ -89,7 +88,8 @@
    current set of clusters."
   [distance-fn clusters]
   (fn [p2]
-    (apply min (for [p1 clusters] (distance-fn p1 p2)))))
+    (apply min (for [p1 clusters]
+                 (distance-fn p1 p2)))))
 
 
 (s/fdef q-of-x
@@ -116,7 +116,9 @@
     (log/info "Caching q(x) distribution in :points dataset")
     (p/write-dataset-seq conf :points
                          (->> (p/read-dataset-seq conf :points)
-                              (map #(ds/column-map % "q(x)" qx))))))
+                              (map #(ds/column-map % "q(x)" qx))))
+    (info "COLUMN NAMES IS" (:col-names conf))
+    (update-in conf [:col-names] conj "q(x)")))
 
 (s/fdef cleanup-q-of-x :args (s/cat :conf :josh.meanings.specs/configuration))
 (defn- cleanup-q-of-x
@@ -125,7 +127,8 @@
   (log/info "Removing cached q(x) distribution in :points dataset")
   (p/write-dataset-seq conf :points
                        (->> (p/read-dataset-seq conf :points)
-                            (map #(dissoc % "q(x)")))))
+                            (map #(dissoc % "q(x)"))))
+  (update-in conf [:col-names] (comp vec butlast)))
 
 
 (s/fdef mcmc-sample
@@ -164,8 +167,8 @@
   (log/info "Sampling cluster from dataset for initial centroid choice")
   (let [cluster (first (uniform-sample (p/read-dataset-seq conf :points) 1))]
     (log/info "Got initial cluster" cluster)
-    (q-of-x conf cluster)
-    (let [k (:k conf)   ;; number of clusters
+    (let [conf (q-of-x conf cluster)
+          k (:k conf)   ;; number of clusters
           m (:m conf)   ;; markov chain length 
           sp (samples (p/read-dataset-seq conf :points) k m)
           clusters
@@ -173,13 +176,13 @@
             (log/info "Remaning samples are" rsp)
             (log/info "Latest new cluster is" (last cs))
             (let [weight-fn (make-weight-fn (:distance-fn conf) cs)]
-            (log/info "Performing round of mcmc sampling")
-            (if (empty? rsp)
-              cs
-              (let [nc (mcmc-sample weight-fn (take m rsp))]
-                (recur (conj cs nc) (drop m rsp))))))]
-      (cleanup-q-of-x conf)
-      clusters)))
+              (log/info "Performing round of mcmc sampling")
+              (if (empty? rsp)
+                cs
+                (let [nc (mcmc-sample weight-fn (take m rsp))]
+                  (recur (conj cs nc) (drop m rsp))))))]
+        (cleanup-q-of-x conf)
+        clusters)))
 
 
 (defmethod initialize-centroids
