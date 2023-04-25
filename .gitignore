@@ -20,3 +20,5 @@ pom.xml.asc
 *.arrows
 *.log
 *.parquet
+decompiled*
+dec*

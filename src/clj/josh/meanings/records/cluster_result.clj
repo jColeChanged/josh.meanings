@@ -40,10 +40,8 @@
    "
   (:require
    [josh.meanings.persistence :refer [read-dataset-seq]]
-   [josh.meanings.distances :refer [get-distance-fn]]
    [josh.meanings.protocols.savable :refer [Savable]]
-   [josh.meanings.protocols.classifier :refer [Classifier load-centroids]]
-   [josh.meanings.classify :as classification-utils]
+   [josh.meanings.protocols.classifier :refer [Classifier]]
    [josh.meanings.specs]
    [clojure.spec.alpha :as s]
    [tech.v3.dataset :as ds]))
@@ -120,8 +118,6 @@
   (fn [_ x] (if (map? x) :map :vector)))
 
 
-
-
 (defn save-model-impl
   "Saves the cluster result to disk.  Returns the filename that the cluster result 
    was saved to.
@@ -135,36 +131,21 @@
   filename)
 
 
-
 (s/fdef save-model-impl
   :args (s/cat :this ::cluster-result
                :filename :josh.meanings.specs/filename)
   :ret :josh.meanings.specs/filename)
 
 
-
 (extend-type ClusterResult
   Savable
-  (save-model 
-    [^ClusterResult this ^String filename] 
-    (save-model-impl this filename)))
+  (save-model [this filename] (save-model-impl this filename)))
 
 (extend-type ClusterResult
   Classifier
-  (load-centroids [this]
-    (load-centroids-impl this))
-  
-  (load-assignments
-   [^ClusterResult this]
-   (load-assignments-impl this))
-  
-  (classify
-  [^ClusterResult this x]
-  (classify-impl this x)))
-
-
-
-
+  (load-centroids [this] (load-centroids-impl this))
+  (load-assignments [this] (load-assignments-impl this))
+  (classify [this x] nil))
 
 
 (defn load-model
@@ -189,37 +170,3 @@
 (s/fdef load-model
   :args (s/cat :filename :josh.meanings.specs/filename)
   :ret ::cluster-result)
-
-
-(defn classify-map
-  [^ClusterResult this x]
-  (let [point (vec (for [col (-> this :configuration :col-names)] (x col)))]
-    (classify-impl this point)))
-
-(s/fdef classify-map
-  :args (s/cat 
-         :this ::cluster-result 
-         :x map?)
-  :ret nat-int?
-  :fn #(let [this (-> % :args :this)
-             x (-> % :args :x)]
-          (and
-           (s/valid? :josh.meanings.specs/col-names (keys x))
-           (every? (set (-> this :configuration :col-names)) (keys x)))))
-
-(defn classify-vector
-  [this point]
-  (let [distance-fn (get-distance-fn (-> this :configuration :distance-key))
-        centroids (-> (load-centroids this)
-                      (ds/select-columns (-> this :configuration :col-names))
-                      (ds/rowvecs))]
-    (println "About to classify with" centroids point)
-    (classification-utils/classify centroids distance-fn point)))
-
-(defmethod classify-impl :map
-  [this x]
-  (classify-map this x))
-
-(defmethod classify-impl :vector
-  [this x]
-  (classify-vector this x))

@@ -8,8 +8,8 @@
    [josh.meanings.initializations.core :refer [initialization-keys]]
    [josh.file.utils :as futils]
    [tech.v3.dataset :as ds]
-   [tech.v3.datatype.functional :as dfn]))
-
+   [tech.v3.datatype.functional :as dfn]
+   [uncomplicate.neanderthal.core :refer [matrix?]]))
 
 (s/def ::number number?)
 (s/def ::point (s/coll-of ::number :min-count 1))
@@ -59,6 +59,7 @@
     #(gen/fmap
       (juxt identity identity identity identity)
       (s/gen ::dataset))))
+(s/def ::datasets ::dataset-seq)
 
 (s/def ::sampling-dataset
   (s/with-gen
@@ -118,3 +119,5 @@
            :josh.meanings/format-key
            :josh.meanings/cost
            :josh.meanings/cluster-result-configuration]))
+
+(s/def ::matrix matrix?)

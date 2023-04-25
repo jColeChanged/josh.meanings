@@ -1,6 +1,6 @@
 (ns josh.meanings.initializations.parallel
   (:require
-   [clojure.tools.logging :as log]
+   [taoensso.timbre :as log]
    [josh.meanings.persistence :as persist]
    [clojure.spec.alpha :as s]
    [josh.meanings.initializations.utils :refer

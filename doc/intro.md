@@ -86,6 +86,13 @@ keeping the best one. Or perhaps something more sophisticated like
 continuing to do clustering until you think the probability of finding 
 an improvement goes below some threshold.
 
+
+## Example Usage
+
+```
+(k-means "/home/joshua/Projects/fast.parquet" 200 :columns ["f1" "f2" "f3"])
+```
+
 ## Testing
 
 Tested on both massive datasets and toy datasets. This is an area 

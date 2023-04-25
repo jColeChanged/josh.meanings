@@ -13,11 +13,10 @@
    to be carried out across a cluster of computers, k-means-mc++ is 
    better suited to running on a single machine."
   (:require
-   [clojure.tools.logging :as log]
+   [taoensso.timbre :as log]
    [josh.meanings.persistence :as p]
    [josh.meanings.initializations.utils :refer [centroids->dataset uniform-sample add-default-chain-length]]
-   [clojure.spec.alpha :as s]
-   [clojure.test :refer [is]])
+   [clojure.spec.alpha :as s])
   (:use
    [josh.meanings.initializations.core]))
 

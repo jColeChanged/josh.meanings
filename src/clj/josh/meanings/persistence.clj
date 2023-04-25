@@ -12,11 +12,13 @@
   (write-dataset-seq state :filename [dataset1 dataset2 ...])"
   (:require [clojure.java.io]
             [clojure.string]
-            [clojure.tools.logging :as log]
+            [taoensso.timbre :as log :refer [info]]
             [tech.v3.dataset :as ds :refer [select-columns]]
+            [ham-fisted.lazy-noncaching :as nfln]
             [tech.v3.dataset.io.csv :as ds-csv]
             [tech.v3.libs.arrow :as ds-arrow]
-            [tech.v3.libs.parquet :as ds-parquet])
+            [tech.v3.libs.parquet :as ds-parquet]
+            [clojure.spec.alpha :as s])
   (:gen-class))
 
 ;; CSV was extremely slow. Arrow failed to load really large files.
@@ -34,7 +36,8 @@
     :suffix ".parquet"}
    :arrow
    {:writer ds-arrow/dataset-seq->stream!
-    :reader ds-arrow/stream->dataset-seq
+    :reader (fn [path]
+              (ds-arrow/stream->dataset-seq path {:open-type :mmap}))
     :suffix ".arrow"}
    :arrows
    {:writer (fn [path ds-seq]
@@ -77,8 +80,9 @@
   argument should be a collection of column names to select from each dataset.
 
   Returns a sequence of datasets containing the specified columns."
-  [^clojure.lang.Seqable datasets-seq col-names]
-  (map (fn [ds] (ds/select-columns ds col-names)) datasets-seq))
+  [ds-seq col-names]
+  (nfln/map (fn [ds] (ds/select-columns ds col-names)) ds-seq))
+
 
 
 (defn read-dataset-seq
@@ -98,13 +102,11 @@
   ([]
    (throw (IllegalArgumentException. "Missing required argument: filename")))
   ([^String filename] 
-   {:post [(seq? %) (every? ds/dataset? %)]}
    (let [format (filename->format filename)
          reader-fn (-> formats format :reader)]
-     (log/info "Loading" filename "with" format)
+     ;; (log/debug "Loading" filename "with" format)
      (reader-fn filename)))
   ([^clojure.lang.IPersistentMap s ^clojure.lang.Keyword key]
-   {:pre [(map? s) (keyword? key)]} 
    (if (= key :points)
      (select-columns-seq (read-dataset-seq (key s)) (:col-names s))
      (read-dataset-seq (key s)))))
@@ -129,9 +131,9 @@
   
   Returns nil."
   ([filename dataset]
-   (log/info "About to write" filename "with data" dataset)
-   (ds/write! dataset filename)
-   (log/info "Finished writing " filename))
+   ;; (log/debug "About to write" filename "with data" dataset)
+   (ds/write! dataset filename))
+   ;;(log/debug "Finished writing " filename))
   ([s key dataset]
    {:pre [(map? s) (keyword? key) (ds/dataset? dataset)]}
    (write-dataset (key s) dataset)))
@@ -146,9 +148,9 @@
   [filename ds-seq]
   (let [format (filename->format filename)
         writer-fn! (-> formats format :writer)]
-    (log/info "About to write" filename)
-    (writer-fn! filename ds-seq)
-    (log/info "Finished writing " filename)))
+    ;;(log/debug "About to write" filename)
+    (writer-fn! filename ds-seq)))
+    ;;(log/debug "Finished writing " filename)))
 
 (defn write-dataset-seq
   "Writes a sequence of datasets to a file using the specified format.
@@ -166,22 +168,21 @@
 (defn change-extension
   [filename format]
   (let [desired-suffix (:suffix (formats format))]
+    (println filename format desired-suffix)
     (clojure.string/replace filename #"(.*)\.(.*?)$" (str "$1" desired-suffix))))
-
-
 
 
 (defn convert-file
   "Converts a file into another file type and returns the new filename."
   [filename format]
+  (println "Checking whether file extension changes are necessary for" filename)
   (let [new-filename (change-extension filename format)
         reader-fn (:reader (formats (filename->format filename)))]
     (when (not= filename new-filename)
-      (log/info "Converting" filename "to" new-filename)
+      (log/debug "Converting" filename "to" new-filename)
       (write-datasets new-filename (reader-fn filename))
-      (log/info "Conversion completed"))
+      (log/debug "Conversion completed"))
     new-filename))
-
 
 
 (defn ds-seq->rows->maps

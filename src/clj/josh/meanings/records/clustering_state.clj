@@ -5,9 +5,7 @@
   (:require
    [josh.meanings.protocols.clustering-state :refer [PClusteringState]]
    [josh.meanings.persistence :as persist]
-   [tech.v3.dataset :as ds]
-   
-   ))
+   [tech.v3.dataset :as ds]))
 
 
 (defrecord KMeansState
@@ -23,6 +21,7 @@
             k-means           ;; A reference to the k-means function; sometimes k means classification requires recursion.
             size-estimate     ;; An estimate of the size of the dataset.  Sometimes useful in initialization methods and sanity checks. 
             col-names         ;; The column names of the dataset used for clustering.
+            use-gpu           ;; Whether to use GPU or not.
             ]
 
   PClusteringState

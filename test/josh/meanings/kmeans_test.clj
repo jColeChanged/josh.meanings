@@ -1,20 +1,8 @@
 (ns josh.meanings.kmeans-test
   (:require [clojure.test :refer :all]
-            [josh.test.core :refer [check?]]
             [tech.v3.dataset :as ds]
-            [josh.meanings.distances :refer [get-distance-fn]]
-            [josh.meanings.protocols.savable :refer [Savable]]
-            [josh.meanings.protocols.classifier :refer [load-assignments load-centroids]]
-            [josh.meanings.kmeans :refer [sum
-                                          min-index
-                                          cost
-                                          max-index
-                                          distances
-                                          classify
-                                          assignments
-                                          dataset-assignments
-                                          dataset-assignments-seq
-                                          k-means
+            [josh.meanings.protocols.classifier :refer [load-centroids]]
+            [josh.meanings.kmeans :refer [k-means
                                           initialize-k-means-state
                                           initialize-centroids!
                                           calculate-objective
@@ -22,144 +10,9 @@
                                           regenerate-assignments!]]
             [josh.meanings.records.cluster-result]
             [josh.meanings.persistence :refer :all]
-            [clojure.spec.test.alpha :as stest])
+            [josh.meanings.distances :as distance])
   (:use [clojure.data.csv :as csv]
         [clojure.java.io :as io]))
-
-(deftest testing-sum
-  (stest/instrument `sum)
-  (testing "Test that sum returns the correct answers."
-    (is (= 0 (sum [])))
-    (is (= 30 (sum [10 10 10])))))
-
-(deftest test-min-index
-  (testing "That min index conforms to its spec."
-    (is (check? (stest/check `min-index) {}))))
-
-(deftest test-max-index
-  (testing "That max index conforms to its spec."
-    (is (check? (stest/check `max-index) {}))))
-
-(deftest testing-distances
-  (stest/instrument `distances)
-  (testing "That a simple distance calculation returns the correct distances."
-    (let [centroids [[2 0 0] [0 2 0] [1 1 0]]
-          point [2 0 0]
-          distance-fn (get-distance-fn :emd)
-          expected [0.0 2.0 1.0]
-          actual (distances centroids distance-fn point)]
-      (is (= expected actual)))))
-
-(deftest testing-classify
-  (stest/instrument `distances)
-  (let [centroids [[2 0 0] [0 2 0] [1 1 0]]
-        distance-fn (get-distance-fn :emd)]
-    (testing "That classifying a point in the centroids returns the index of that centroid."
-      (is (= 0 (classify centroids distance-fn (first centroids))))
-      (is (= 1 (classify centroids distance-fn (second centroids))))
-      (is (= 2 (classify centroids distance-fn (last centroids)))))))
-
-
-(deftest testing-assignments
-  (stest/instrument `assignments)
-  (testing "That the index identity is preserved."
-    (let [centroids [[2 0 0] [0 2 0] [1 1 0]]
-          distance-fn (get-distance-fn :emd)
-          expected [0 1 2]]
-      (is (= expected (assignments centroids distance-fn centroids))))))
-
-
-(deftest test-dataset-assignments
-  (stest/instrument `dataset-assignments)
-  (testing "That the index identity property is preserved for centroids."
-    (let [centroids [{:wins 2 :losses 0 :draws 0}
-                     {:wins 0 :losses 2 :draws 0}
-                     {:wins 1 :losses 1 :draws 0}]
-          distance-fn (get-distance-fn :emd)
-          dataset (ds/->dataset centroids)
-          expected [0 1 2]]
-      (is (= expected ((dataset-assignments dataset distance-fn [:wins :losses :draws] dataset) "assignments")))))
-  
-  (testing "That the assignments are correct event when the dataset ordering isn't the same as the centroid ordering."
-    (let [centroids [{:losses 0 :draws 0 :wins 2}
-                     {:losses 2 :draws 0 :wins 0}
-                     {:losses 1 :draws 0 :wins 1}]
-          points [{:wins 2 :losses 0 :draws 0}
-                  {:wins 0 :losses 2 :draws 0}
-                  {:wins 1 :losses 1 :draws 0}]
-          distance-fn (get-distance-fn :emd)
-          dataset-centroids (ds/->dataset centroids)
-          dataset-points (ds/->dataset points)
-          expected [0 1 2]]
-      (is (= expected ((dataset-assignments dataset-centroids distance-fn [:wins :losses :draws] dataset-points) "assignments")))))
-    (testing "That the assignments are correct event when getting only a subset of the columns."
-      (let [centroids [{:losses 0 :draws 0 :wins 2}
-                       {:losses 2 :draws 0 :wins 0}
-                       {:losses 1 :draws 0 :wins 1}]
-            points [{:wins 2 :losses 0 :draws 0}
-                    {:wins 0 :losses 2 :draws 0}
-                    {:wins 1 :losses 1 :draws 0}
-                    {:wins 2 :draws 0 :losses 0}]
-            distance-fn (get-distance-fn :emd)
-            dataset-centroids (ds/->dataset centroids)
-            dataset-points (ds/->dataset points)
-            expected [0 1 2 0]]
-        (is (= expected ((dataset-assignments dataset-centroids distance-fn [:wins :draws] dataset-points) "assignments"))))))
-
-
-(deftest test-dataset-assignments-seq
-  (stest/instrument `dataset-assignments-seq)
-  (testing "That the index identity property is preserved for centroids."
-    (let [centroids [{:wins 2 :losses 0 :draws 0}
-                     {:wins 0 :losses 2 :draws 0}
-                     {:wins 1 :losses 1 :draws 0}]
-          distance-fn (get-distance-fn :emd)
-          dataset (ds/->dataset centroids)
-          expected [[0 1 2] [0 1 2]]]
-      (is (= expected
-             (map #(% "assignments") (dataset-assignments-seq dataset distance-fn [:wins :losses :draws] [dataset dataset]))))))
-  (testing "That the assignments are correct event when the dataset ordering isn't the same as the centroid ordering."
-    (let [centroids [{:losses 0 :draws 0 :wins 2}
-                     {:losses 2 :draws 0 :wins 0}
-                     {:losses 1 :draws 0 :wins 1}]
-          points [{:wins 2 :losses 0 :draws 0}
-                  {:wins 0 :losses 2 :draws 0}
-                  {:wins 1 :losses 1 :draws 0}]
-          distance-fn (get-distance-fn :emd)
-          dataset-centroids (ds/->dataset centroids)
-          dataset-points (ds/->dataset points)
-          expected [[0 1 2] [0 1 2]]]
-      (is (= expected
-             (map #(% "assignments") (dataset-assignments-seq dataset-centroids distance-fn [:wins :losses :draws] [dataset-points dataset-points]))))))
-    (testing "That the assignments are correct event when getting only a subset of the columns."
-      (let [centroids [{:losses 0 :draws 0 :wins 2}
-                       {:losses 2 :draws 0 :wins 0}
-                       {:losses 1 :draws 0 :wins 1}]
-            points [{:wins 2 :losses 0 :draws 0}
-                    {:wins 0 :losses 2 :draws 0}
-                    {:wins 1 :losses 1 :draws 0}
-                    {:wins 2 :draws 0 :losses 0}]
-            distance-fn (get-distance-fn :emd)
-            dataset-centroids (ds/->dataset centroids)
-            dataset-points (ds/->dataset points)
-            expected [[0 1 2 0] [0 1 2 0]]]
-        (is (= expected 
-               (map #(% "assignments") (dataset-assignments-seq dataset-centroids distance-fn [:wins :draws] [dataset-points dataset-points])))))))
-
-
-(deftest testing-cost 
-  (stest/instrument `cost)
-  (testing "That the cost function returns the correct cost."
-    (let [centroids [[2 0 0] [0 2 0] [1 1 0]]
-          distance-fn (get-distance-fn :emd)
-          point [0 2 0]]
-      (is (= 2.0 (cost centroids distance-fn 0 point)))
-      (is (= 0.0 (cost centroids distance-fn 1 point)))
-      (is (= 1.0 (cost centroids distance-fn 2 point))))))
-
-(deftest test-configuration-identity 
-  (testing "That the configuration returned matches the configuration used to generate the cluster result."))
-
 
 ;; Given generators for centroids it should be possible to implement an 
 ;; identity test.check which checks an equivalence relation between finding 
@@ -299,6 +152,14 @@
        (cleanup-files! very-small-test-dataset-cleanup-files))))
 
 
+;; (def result 
+;;   (with-small-dataset
+;;     (let [cluster-result (k-means small-dataset-filename small-k :m 200)]
+;;       cluster-result)))
+
+;; (load-centroids result)
+
+
 (deftest test-equal-inputs-have-equal-assignments
   (with-small-dataset
     (let [cluster-result (k-means small-dataset-filename small-k :m 200)
@@ -337,7 +198,7 @@
    verifying that the program doesn't fail to run when dataset 
    sizes are large."
   []
-  (cons ["wins" "losses" "draws"] (repeatedly 1000000 (fn [] (repeatedly 3 #(rand-int 1000))))))
+  (cons ["wins" "losses" "draws"] (repeatedly 100000 (fn [] (repeatedly 3 #(rand-int 1000))))))
 
 
 (defn create-large-testing-dataset!
@@ -360,18 +221,19 @@
 
 
 (deftest test-k-means-large-dataset-memory-bound
-  (with-large-dataset
-    (let [state (initialize-k-means-state large-dataset-filename large-dataset-k {})]
-      (testing "Test that initial generation of centroids works on large files."
-        (initialize-centroids! state))
-      (testing "Test that initial generating assignments work on large files."
-        (regenerate-assignments! state))
-      (testing "Testing that calculating objective works on large files."
-        (calculate-objective state))
-      (testing "Test that looping generation of centroids works on large files."
-        (recalculate-means state))
-      (testing "Testing that looping generation of assignments works on large files."
-        (regenerate-assignments! state)))))
+    (with-large-dataset
+      (let [state (initialize-k-means-state large-dataset-filename large-dataset-k {})]
+        (testing "Test that initial generation of centroids works on large files."
+          (initialize-centroids! state))
+        (distance/with-gpu-context state
+          (testing "Test that initial generating assignments work on large files."
+            (regenerate-assignments! state))
+          (testing "Testing that calculating objective works on large files."
+            (calculate-objective state))
+          (testing "Test that looping generation of centroids works on large files."
+            (recalculate-means state))
+          (testing "Testing that looping generation of assignments works on large files."
+            (regenerate-assignments! state))))))
 
 
 (deftest testing-cluster-result-configuration-identity

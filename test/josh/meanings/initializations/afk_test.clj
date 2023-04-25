@@ -1,4 +1,4 @@
-(ns josh.meanings.initializations.test-afk
+(ns josh.meanings.initializations.afk-test
   (:require [clojure.pprint :as pprint]
             [clojure.spec.test.alpha :as stest]
             [clojure.test :refer [deftest is testing]]

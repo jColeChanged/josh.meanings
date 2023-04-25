@@ -3,10 +3,9 @@
    guarantees on solution quality for any individual run, but which will 
    complete in O(n + k*d) time and only takes O(k*d) space."
   (:require
-   [clojure.tools.logging :as log]
+   [taoensso.timbre :as log]
    [josh.meanings.persistence :as persist]
    [josh.meanings.initializations.utils :refer [centroids->dataset uniform-sample]]
-   [josh.meanings.specs :as specs]
    [clojure.spec.alpha :as s]
    [clojure.test :refer [is]])
   (:use

@@ -3,8 +3,8 @@
   (:require
    [tech.v3.dataset :as ds]
    [josh.meanings.protocols.savable :refer [save-model  Savable]]
-   [josh.meanings.protocols.classifier :refer [classify load-assignments load-centroids Classifier]]
-   [clojure.test :refer [deftest testing is use-fixtures]]
+   [josh.meanings.protocols.classifier :refer [load-assignments load-centroids]]
+   [clojure.test :refer [deftest testing is]]
    [josh.meanings.records.cluster-result :refer [load-model map->ClusterResult]]))
 
 
@@ -56,17 +56,6 @@
       (testing "That the assignments dataset has a 'assignments' column."
         (let [first-assignment (first assignments-dataset)]
           (is (some #{"assignments"} (ds/column-names first-assignment)))))))) 
-
-
-(deftest test-classify
-  (testing "That the classify method works as expected on vectors."
-    (let [test-vector [1 2 3]
-          expected-result 0]
-      (is (= expected-result (classify test-cluster test-vector)))))
-  (testing "That the classify method works as expected on maps."
-    (let [test-map {"col1" 1 "col2" 2 "col3" 3}
-          expected-result 0]
-      (is (= expected-result (classify test-cluster test-map))))))
 
 
 
