@@ -1,0 +1,1 @@
+["^ ","~$set-log-level",["^ ","~:row",6,"~:col",1,"~:fixed-arities",["~#set",[1]],"~:name","^0","~:ns","~$tech.v3.dataset.utils.slf4j-log-level","~:top-ns","^7","~:type","~:fn"],"~:filename","/home/joshua/.m2/repository/techascent/tech.ml.dataset/7.000-beta-38/tech.ml.dataset-7.000-beta-38.jar:tech/v3/dataset/utils/slf4j_log_level.clj"]

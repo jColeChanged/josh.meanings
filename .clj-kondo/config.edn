@@ -1,0 +1,16 @@
+{:lint-as {clj-fast.clojure.core/get         clojure.core/get
+           clj-fast.clojure.core/nth         clojure.core/nth
+           clj-fast.clojure.core/assoc       clojure.core/assoc
+           clj-fast.clojure.core/get-in      clojure.core/get-in
+           clj-fast.clojure.core/merge       clojure.core/merge
+           clj-fast.clojure.core/assoc-in    clojure.core/assoc-in
+           clj-fast.clojure.core/update-in   clojure.core/update-in
+           clj-fast.clojure.core/select-keys clojure.core/select-keys
+           clj-fast.clojure.core/destructure clojure.core/destructure
+           clj-fast.clojure.core/let         clojure.core/let
+           clj-fast.clojure.core/fn          clojure.core/fn
+           clj-fast.clojure.core/loop        clojure.core/loop
+           clj-fast.clojure.core/defn        clojure.core/defn
+           clj-fast.clojure.core/defn-       clojure.core/defn-
+           
+           uncomplicate.commons.core/with-release clojure.core/with-open}}

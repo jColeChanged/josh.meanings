@@ -13,7 +13,6 @@ pom.xml.asc
 .nrepl-port
 .cpcache/
 .calva
-.clj-kondo
 .lsp
 *.csv
 *.arrow
