@@ -11,12 +11,9 @@
     (let [k-means (utils/add-default-chain-length (->KMeansState
                                                    100
                                                    "test.points.csv"
-                                                   "test-centroids.csv"
-                                                   "test-assignments.csv"
                                                    :csv
                                                    :afk-mc
                                                    :emd
-                                                   identity
                                                    nil
                                                    identity
                                                    100
@@ -29,15 +26,12 @@
                                                    100
                                                    "test.points.csv"
                                                    "test-centroids.csv"
-                                                   "test-assignments.csv"
                                                    :csv
                                                    :afk-mc
                                                    :emd
-                                                   identity
                                                    1000
                                                    identity
                                                    100
                                                    []
                                                    true))]
       (is (=  (:m k-means) 1000)))))
-

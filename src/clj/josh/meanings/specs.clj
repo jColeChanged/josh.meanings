@@ -11,6 +11,8 @@
    [tech.v3.datatype.functional :as dfn]
    [uncomplicate.neanderthal.core :refer [matrix?]]))
 
+
+
 (s/def ::number number?)
 (s/def ::point (s/coll-of ::number :min-count 1))
 (s/def ::points (s/coll-of :point :min-count 1))

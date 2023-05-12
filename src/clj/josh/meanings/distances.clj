@@ -104,7 +104,8 @@
    (-> ds
        (ds/select-columns (:col-names conf))
        (dataset->dense :row :float32)))
-  ([ds] (dataset->dense ds :row :float32)))
+  ([ds] 
+   (dataset->dense ds :row :float32)))
 
 
 ;; GPU based distance functions need to work a little differently.  For CPU 
@@ -245,7 +246,11 @@
   [conf & forms]
   `(do
      (get-device-context ~conf
-                         (dataset->dense (first (p/read-dataset-seq ~conf :points)) :row :float32))
+                          (dataset->matrix
+                           ~conf 
+                           (if (not (nil? (:centroids ~conf)))
+                             (:centroids ~conf)
+                             (first (p/read-dataset-seq ~conf :points)))))
      (try
        ~@forms
        (finally
@@ -304,7 +309,7 @@
          res))))
   ([device-context
     ^uncomplicate.neanderthal.internal.host.buffer_block.RealGEMatrix matrix
-    ^uncomplicate.neanderthal.internal.host.buffer_block.RealGEMatrix centroids]
+    ^uncomplicate.neanderthal.internal.host.buffer_block.RealGEMatrix centroids] 
    (let [num-clusters (mrows centroids)
          n (mrows matrix)
          num-distances (* n num-clusters)

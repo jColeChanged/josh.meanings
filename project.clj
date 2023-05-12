@@ -1,4 +1,4 @@
-(defproject org.clojars.joshua/josh.meanings (or (System/getenv "PROJECT_VERSION") "3.0.2")
+(defproject org.clojars.joshua/josh.meanings (or (System/getenv "PROJECT_VERSION") "3.0.4")
   :description "Clojure implementation of larger than memory K-Means clustering."
   :url "https://github.com/jcolechanged/josh.meanings"
   :license {:name "The MIT License"
@@ -6,10 +6,10 @@
   :dependencies [[org.clojure/clojure "1.11.1"]
                  [org.clojure/data.csv "1.0.1"]
                  [org.clojure/test.check "1.1.1"]
+                 [org.clojure/tools.cli "1.0.206"]
+                 
                  ;; [techascent/tech.ml.dataset "6.103"]
                  [techascent/tech.ml.dataset "7.000-beta-38"]
-                 [org.clojure/tools.cli "1.0.206"]
-                 ;; [generateme/fastmath "2.1.8"]
                  [generateme/fastmath "2.2.1"]
                  [uncomplicate/clojurecl "0.15.1"]
                  [uncomplicate/neanderthal "0.46.0"]
@@ -33,7 +33,6 @@
                 ;; Required for decompressing lz4 streams with dependent blocks.
 
                  [org.lz4/lz4-java "1.8.0"]
-
 
                  ;; Logging support 
                  [ch.qos.logback/logback-classic "1.2.10" :exclusions [org.slf4j/slf4j-api]]

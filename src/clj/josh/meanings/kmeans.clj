@@ -9,27 +9,26 @@
 	 that result, in terms of inter-cluster and intracluster distances and 
 	 cohesion. As a result k means is best run multiple times in order to 
 	 avoid the trap of a local minimum."
-  (:require
-   [clojure.spec.alpha :as s]
-   [progrock.core :as pr] 
-   [clojure.string]
-   [uncomplicate.neanderthal.core :as ne]
-   [josh.meanings.initializations
+  (:require [clojure.spec.alpha :as s]
+            [clojure.string]
+            [ham-fisted.lazy-noncaching :as hfln]
+            [josh.meanings.distances :as distances]
+            [josh.meanings.initializations
     [mc2 :as init-mc2]
     [afk :as init-afk]
     [plusplus :as init-plusplus]
     [parallel :as init-parallel]]
-   [josh.meanings.initializations.core :refer [initialize-centroids]]
-   [josh.meanings.records.cluster-result :refer [map->ClusterResult]]
-   [josh.meanings.records.clustering-state :refer [->KMeansState]]
-   [josh.meanings.persistence :as persist]
-   [tech.v3.dataset :as ds]
-   [tech.v3.dataset.reductions :as dsr]
-   [josh.meanings.distances :as distances]
-   [ham-fisted.lazy-noncaching :as hfln])
-  (:import
-   [josh.meanings.records.cluster_result ClusterResult]
-   [josh.meanings.records.clustering_state KMeansState]))
+            [josh.meanings.initializations.core :refer [initialize-centroids]]
+            [josh.meanings.persistence :as persist]
+            [josh.meanings.protocols.classifier :refer [assignments Classifier]]
+            [josh.meanings.records.cluster-result :refer [map->ClusterResult]]
+            [josh.meanings.records.clustering-state :refer [->KMeansState]]
+            [progrock.core :as pr]
+            [tech.v3.dataset :as ds]
+            [tech.v3.dataset.reductions :as dsr]
+            [uncomplicate.neanderthal.core :as ne])
+  (:import [josh.meanings.records.cluster_result ClusterResult]
+           [josh.meanings.records.clustering_state KMeansState]))
 
 (set! *warn-on-reflection* true)
 
@@ -72,18 +71,14 @@
   "Sets initial configuration options for the k means calculation."
   [points-file k options]
   (let [{:keys [format init distance-key m]} (merge default-options options)
-        distance-fn (distances/get-distance-fn distance-key)
         points-file (persist/convert-file points-file format)
         col-names (get options :columns (column-names points-file))]
     (->KMeansState
      k
      points-file
-     "josh.meanings/centroids.arrow"
-     (persist/assignments-filename points-file)
      format
      init
      distance-key
-     distance-fn
      m
      k-means
      (estimate-size points-file)
@@ -91,13 +86,24 @@
      true)))
 
 
-
-(defn assignments
+(defn assignments-api
   "Updates a sequence of assignment datasets with the new assignments."
   ([^KMeansState conf points-seq]
    (let [assign (fn [ds] (assoc ds "assignments" (distances/minimum-index conf ds)))]
      (hfln/map assign points-seq))))
 
+
+
+(extend-type KMeansState
+  Classifier
+  (assignments [this dataset-seq] 
+    (assignments-api this dataset-seq)))
+
+
+(extend-type ClusterResult
+  Classifier
+  (assignments [this dataset-seq] 
+    (assignments (:configuration this) dataset-seq)))
 
 
 (s/fdef calculate-objective :args (s/cat :s :josh.meanings.specs/configuration) :ret number?)

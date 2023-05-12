@@ -220,22 +220,6 @@
        (cleanup-files! large-test-dataset-cleanup-files))))
 
 
-(deftest test-k-means-large-dataset-memory-bound
-    (with-large-dataset
-      (let [state (initialize-k-means-state large-dataset-filename large-dataset-k {})]
-        (testing "Test that initial generation of centroids works on large files."
-          (initialize-centroids! state))
-        (distance/with-gpu-context state
-          (testing "Test that initial generating assignments work on large files."
-            (regenerate-assignments! state))
-          (testing "Testing that calculating objective works on large files."
-            (calculate-objective state))
-          (testing "Test that looping generation of centroids works on large files."
-            (recalculate-means state))
-          (testing "Testing that looping generation of assignments works on large files."
-            (regenerate-assignments! state))))))
-
-
 (deftest testing-cluster-result-configuration-identity
   (with-small-dataset
     (testing "That the configuration keys used in KMeansState matches the keys in the result." 

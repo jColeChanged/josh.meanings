@@ -7,19 +7,15 @@
   
   Examples:
 
-  (read-dataset-seq state :filename)
-   
-  (write-dataset-seq state :filename [dataset1 dataset2 ...])"
+  (read-dataset-seq state :filename)"
   (:require [clojure.java.io]
             [clojure.string]
-            [taoensso.timbre :as log :refer [info]]
-            [tech.v3.dataset :as ds :refer [select-columns]]
+            [tech.v3.dataset :as ds]
             [ham-fisted.lazy-noncaching :as nfln]
             [tech.v3.dataset.io.csv :as ds-csv]
             [tech.v3.libs.arrow :as ds-arrow]
             [tech.v3.libs.parquet :as ds-parquet]
-            [clojure.spec.alpha :as s])
-  (:gen-class))
+            [clojure.spec.alpha :as s]))
 
 ;; CSV was extremely slow. Arrow failed to load really large files.
 ;; Arrows failed to write extremely small files. So I wanted to try 
@@ -50,6 +46,7 @@
          :reader ds-csv/csv->dataset-seq
          :suffix ".csv"}})
 
+(s/fdef extension :args (s/cat :filename string?) :ret string?)
 (defn extension
   "Returns a filenames last file extension."
   [filename]
@@ -104,7 +101,6 @@
   ([^String filename] 
    (let [format (filename->format filename)
          reader-fn (-> formats format :reader)]
-     ;; (log/debug "Loading" filename "with" format)
      (reader-fn filename)))
   ([^clojure.lang.IPersistentMap s ^clojure.lang.Keyword key]
    (if (= key :points)
@@ -131,11 +127,8 @@
   
   Returns nil."
   ([filename dataset]
-   ;; (log/debug "About to write" filename "with data" dataset)
    (ds/write! dataset filename))
-   ;;(log/debug "Finished writing " filename))
   ([s key dataset]
-   {:pre [(map? s) (keyword? key) (ds/dataset? dataset)]}
    (write-dataset (key s) dataset)))
 
 (defn write-datasets
@@ -148,40 +141,24 @@
   [filename ds-seq]
   (let [format (filename->format filename)
         writer-fn! (-> formats format :writer)]
-    ;;(log/debug "About to write" filename)
     (writer-fn! filename ds-seq)))
-    ;;(log/debug "Finished writing " filename)))
 
-(defn write-dataset-seq
-  "Writes a sequence of datasets to a file using the specified format.
-  
-  The `k-means-state` argument should be a map containing the `key` value that
-  identifies the file to write to. The `ds-seq` argument should be a sequence of
-  datasets to write to the file. The file format will be determined by the file
-  extension of the filename specified in the `k-means-state` map.
-  
-  Returns nil."
-  [k-means-state key ds-seq]
-  (write-datasets (key k-means-state) ds-seq))
+(def write-dataset-seq write-datasets)
 
 
 (defn change-extension
   [filename format]
   (let [desired-suffix (:suffix (formats format))]
-    (println filename format desired-suffix)
     (clojure.string/replace filename #"(.*)\.(.*?)$" (str "$1" desired-suffix))))
 
 
 (defn convert-file
   "Converts a file into another file type and returns the new filename."
   [filename format]
-  (println "Checking whether file extension changes are necessary for" filename)
   (let [new-filename (change-extension filename format)
         reader-fn (:reader (formats (filename->format filename)))]
     (when (not= filename new-filename)
-      (log/debug "Converting" filename "to" new-filename)
-      (write-datasets new-filename (reader-fn filename))
-      (log/debug "Conversion completed"))
+      (write-datasets new-filename (reader-fn filename)))
     new-filename))
 
 
@@ -189,11 +166,3 @@
   [ds-seq rows]
   (let [column-names (dataset-seq->column-names ds-seq)]
     (map #(zipmap column-names %) rows)))
-
-(defn generate-filename
-  [prefix]
-  #(str prefix "." %))
-
-(def centroids-filename (generate-filename "centroids"))
-
-(def assignments-filename (generate-filename "assignments"))

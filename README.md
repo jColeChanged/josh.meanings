@@ -5,6 +5,7 @@ using Arrow datasets has any testing or expectation of fitness
 for purpose.  If you don't have data larger than memory which 
 you want to cluster on a single machine using a GPU then this 
 is not the k means clustering application for you.
+
 [![CircleCI](https://circleci.com/gh/jColeChanged/josh.meanings.svg?style=shield&circle-token=a4b905e7d28f1f397566185359251b3d7d959818)](https://app.circleci.com/pipelines/github/jColeChanged/josh.meanings?filter=main) [![Clojars Project](https://img.shields.io/clojars/v/org.clojars.joshua/josh.meanings.svg)](https://clojars.org/org.clojars.joshua/josh.meanings)
 
 A mean is a center of points. A means, a way of accomplishing 
