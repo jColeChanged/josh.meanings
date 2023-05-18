@@ -190,14 +190,6 @@
                                    gpu-accelerated)]
     (setup-device distance-configuration (ncols matrix) device)))
 
-(defn setup-devices
-  [configuration matrix]
-  (let [devices (-> (platforms) (first) (devices))
-        distance-configuration (-> configuration :distance-key gpu-accelerated)]
-    (reset! gpu-contexts
-            (into []
-                  (for [device devices]
-                    (setup-device distance-configuration (ncols matrix) device))))))
 
 
 ;; During Lloyd iteration it is common to re-use the same centroids while processing 
@@ -207,8 +199,8 @@
 (defn write-centroids-buffer!
   [gpu-context ^uncomplicate.neanderthal.internal.host.buffer_block.RealGEMatrix centroids]
   (let [k (mrows centroids)
-        centroids-array ^java.nio.FloatBuffer (.buffer centroids)
-        cqueue (:cqueue @gpu-context)
+        centroids-array ^java.nio.FloatBuffer (.buffer centroids) 
+        cqueue (:cqueue @gpu-context) 
         ctx (:ctx @gpu-context)
         cl-centroids (cl-buffer ctx (.capacity centroids-array) :read-only)]
     (enq-write! cqueue cl-centroids centroids-array)

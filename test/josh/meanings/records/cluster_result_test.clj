@@ -67,3 +67,6 @@
           (distances/with-centroids (:centroids test-cluster-result)
             (let [assignment-results (assignments test-cluster-result test-datasets)]
               (is (= (repeat 10 result-dataset) assignment-results)))))))))
+
+
+(test-assignments)

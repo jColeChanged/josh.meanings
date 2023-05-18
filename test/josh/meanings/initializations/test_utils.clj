@@ -25,7 +25,6 @@
     (let [k-means (utils/add-default-chain-length (->KMeansState
                                                    100
                                                    "test.points.csv"
-                                                   "test-centroids.csv"
                                                    :csv
                                                    :afk-mc
                                                    :emd

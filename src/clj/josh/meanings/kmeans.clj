@@ -9,15 +9,18 @@
 	 that result, in terms of inter-cluster and intracluster distances and 
 	 cohesion. As a result k means is best run multiple times in order to 
 	 avoid the trap of a local minimum."
+  (:refer-clojure
+   :exclude
+   [get nth assoc get-in merge assoc-in update update-in select-keys destructure let fn loop defn defn-])
   (:require [clojure.spec.alpha :as s]
             [clojure.string]
             [ham-fisted.lazy-noncaching :as hfln]
             [josh.meanings.distances :as distances]
             [josh.meanings.initializations
-    [mc2 :as init-mc2]
-    [afk :as init-afk]
-    [plusplus :as init-plusplus]
-    [parallel :as init-parallel]]
+             [mc2 :as init-mc2]
+             [afk :as init-afk]
+             [plusplus :as init-plusplus]
+             [parallel :as init-parallel]]
             [josh.meanings.initializations.core :refer [initialize-centroids]]
             [josh.meanings.persistence :as persist]
             [josh.meanings.protocols.classifier :refer [assignments Classifier]]
@@ -26,18 +29,13 @@
             [progrock.core :as pr]
             [tech.v3.dataset :as ds]
             [tech.v3.dataset.reductions :as dsr]
-            [uncomplicate.neanderthal.core :as ne])
+            [uncomplicate.neanderthal.core :as ne]
+            [clj-fast.clojure.core :refer [get nth assoc get-in merge assoc-in update-in select-keys destructure let fn loop defn defn-]])
   (:import [josh.meanings.records.cluster_result ClusterResult]
            [josh.meanings.records.clustering_state KMeansState]))
 
-(set! *warn-on-reflection* true)
 
-(s/fdef initialize-centroids! :args (s/cat :s :josh.meanings.specs/configuration))
-(defn initialize-centroids!
-  "Calls initialize-centroids and writes the returned dataset to the centroids file."
-  [^KMeansState conf] 
-  (println "\nStage 1/2: Cluster Initialization")
-  (persist/write-dataset conf :centroids (initialize-centroids conf)))
+
 
 
 (declare k-means)
@@ -96,13 +94,13 @@
 
 (extend-type KMeansState
   Classifier
-  (assignments [this dataset-seq] 
+  (assignments [this dataset-seq]
     (assignments-api this dataset-seq)))
 
 
 (extend-type ClusterResult
   Classifier
-  (assignments [this dataset-seq] 
+  (assignments [this dataset-seq]
     (assignments (:configuration this) dataset-seq)))
 
 
@@ -121,66 +119,21 @@
 	 clusters. A stabilized k-means calculation can be 
 	 stopped, because further refinement won't produce 
 	 any changes."
-	;; If the two latest centroids distributions are equal 
-	;; then we don't need to generate assignments to know 
-	;; that assignments haven't changed. If they had changed 
-	;; then the center of the centroids would have changed.
-	;; 
-	;; We could keep track of whether assignments were changed 
-	;; during the generation of assignments step, but if we did 
-	;; the cost of doing so would be roughly O(rc) calculations 
-	;; where r is the number of rows and c is the number of columns. 
-	;; 
-	;; Checking here is better than that, because we only need to 
-	;; check O(kc) where k is the number of clusters and c is the 
-	;; number of columns.
-	;;
-	;; It is worth noting that this conception of assignment changes 
-	;; could have some practical benefits. Any differences we observe 
-	;; tell us that there is still room for another round of iterative 
-	;; refinement, but they also give us an idea of where in the space 
-	;; the iterative refinement might need to take place.
-	;; 
-	;; Consider the 1D case where the clusters are at [0, 10, 15, 30, 50]. 
-	;; We can know if the item at 15 moves to 14 and the item at 10 moves 
-	;; to do iterative refinements on elements that are in [0, 10, 15, 30]
-	;; because everything at 50 must be closer to 30 than they are to 15. 
-	;; With five clusters we reduced the number of nodes that we need to 
-	;; refine by 1 cluster worth of nodes, but the more k you have the more 
-	;; potential there is to avoid having to do refinement. 
-	;;
-	;; This is true in two senses. In one sense you have less nodes to 
-	;; do refinement on because there are less nodes that need to be 
-	;; considered for refinement. In another sense there are less clusters 
-	;; you have to consider as having the potential to be reassigned to, 
-	;; because there are only so many clusters can you reassign too.
-	;;
-	;; Interestingly this means that as k increases, the cost savings of 
-	;; this sort of selectivitiy about how we continue to refine also 
-	;; increases. If k increases we should do this step because it saves 
-	;; us time and if r increases we should do this step because k < r.
-	;; 
-	;; But the really profound thing for me is considering that these 
-	;; equality check isn't actually a boolean. It is a special case of 
-	;; the selection criteria - we should stop, because if nothing changed, 
-	;; the clever selection criteria suggests that there is nothing left 
-	;; for us to do.
-	;; 
-	;; Right now as I write this, this is just an equality check. But in 
-	;; the future if I get around to fully optimizing this, this won't be 
-	;; an equality check. Instead it will be returning selection criteria.
   [centroids-1 centroids-2]
+  ;; The bits of equality can be thought of as a selection of the clusters which have moved positions.  
+  ;; When a centroid moves positions, that means its nearest neighbors need to be recalculated.  
   (= centroids-1 centroids-2))
 
 
-(s/fdef lloyd :args (s/cat :conf :josh.meanings.specs/configuration))
-(defn lloyd ^ClusterResult [^KMeansState conf]
+(s/fdef lloyd :args (s/cat :conf :josh.meanings.specs/configuration
+                           :initial-centroids :josh.meanings.specs/dataset))
+(defn lloyd ^ClusterResult [^KMeansState conf initial-centroids]
   (let [column-names (:col-names conf)
         progress (atom 0)
         progress-bar (pr/progress-bar (get conf :iterations 100))]
-    (println "\nStage 2/2: Lloyd iterations")
+    (println "Performing lloyd iteration...")
     (let [final-centroids
-          (loop [centroids (.load-centroids conf)]
+          (loop [centroids initial-centroids]
             (if (< @progress 100)
               (do
                 (pr/print (pr/tick progress-bar @progress))
@@ -193,20 +146,18 @@
                     (assignments conf (persist/read-dataset-seq conf :points))))))
               centroids))]
       (pr/print (pr/done (pr/tick progress-bar @progress)))
-      final-centroids)))
-
-    
-(defn k-means-via-file 
-  [points-filepath k & options]
-  (let [^KMeansState conf (initialize-k-means-state points-filepath k (apply hash-map options))]
-    (initialize-centroids! conf)
-    (distances/with-gpu-context conf
-      (lloyd conf)
       (map->ClusterResult
-       {:centroids (:centroids conf)
-        :assignments (:assignments conf)
-        :cost (calculate-objective conf)
-        :configuration (.configuration conf)}))))
+       {:centroids final-centroids
+        :cost 0
+        :configuration conf}))))
+
+
+(defn k-means-via-file
+  [points-filepath k & options]
+  (let [^KMeansState conf (initialize-k-means-state points-filepath k (apply hash-map options))
+        centroids (initialize-centroids conf)]
+    (distances/with-gpu-context conf (lloyd conf centroids))))
+
 
 
 ;; We never want to rely on things fitting in memory, but in practice 

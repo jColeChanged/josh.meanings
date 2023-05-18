@@ -37,7 +37,9 @@
 (extend-type ClusterResult
   Savable
   (save-model [this filename]
-    (spit filename (pr-str (update this :centroids ds/rows)))))
+    (spit filename (pr-str (-> this
+                               (update :centroids ds/rows)
+                               (update-in [:configuration :centroids] ds/rows))))))
 
 
 (s/fdef load-model
@@ -48,5 +50,6 @@
   (-> filename 
       slurp 
       read-string
-      (update :centroids ds/->dataset)))
+      (update :centroids ds/->dataset)
+      (update-in [:configuration :centroids] ds/->dataset)))
 

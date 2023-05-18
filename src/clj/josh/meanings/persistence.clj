@@ -15,7 +15,8 @@
             [tech.v3.dataset.io.csv :as ds-csv]
             [tech.v3.libs.arrow :as ds-arrow]
             [tech.v3.libs.parquet :as ds-parquet]
-            [clojure.spec.alpha :as s]))
+            [clojure.spec.alpha :as s]
+            [babashka.fs :as fs]))
 
 ;; CSV was extremely slow. Arrow failed to load really large files.
 ;; Arrows failed to write extremely small files. So I wanted to try 
@@ -46,11 +47,11 @@
          :reader ds-csv/csv->dataset-seq
          :suffix ".csv"}})
 
-(s/fdef extension :args (s/cat :filename string?) :ret string?)
 (defn extension
   "Returns a filenames last file extension."
   [filename]
-  (last (clojure.string/split filename #"\.")))
+  (fs/extension filename))
+
 
 (defn filename->format
   "Parses a format lookup key from a filename.
@@ -59,9 +60,7 @@
   must contain a file extension that is in formats.
   
   Returns the format lookup key for the given filename."
-  [^String filename]
-  {:pre [(string? filename)]
-   :post [(contains? formats %)]}
+  [filename]
   (-> filename extension keyword))
 
 (defn file?
@@ -98,7 +97,7 @@
   (read-dataset-seq {:filename '/path/to/file.csv'} :filename)"
   ([]
    (throw (IllegalArgumentException. "Missing required argument: filename")))
-  ([^String filename] 
+  ([filename] 
    (let [format (filename->format filename)
          reader-fn (-> formats format :reader)]
      (reader-fn filename)))

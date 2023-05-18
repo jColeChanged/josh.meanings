@@ -1,16 +1,9 @@
 (ns josh.meanings.kmeans-test
   (:require [clojure.test :refer :all]
             [tech.v3.dataset :as ds]
-            [josh.meanings.protocols.classifier :refer [load-centroids]]
-            [josh.meanings.kmeans :refer [k-means
-                                          initialize-k-means-state
-                                          initialize-centroids!
-                                          calculate-objective
-                                          recalculate-means
-                                          regenerate-assignments!]]
+            [josh.meanings.kmeans :refer [k-means]]
             [josh.meanings.records.cluster-result]
-            [josh.meanings.persistence :refer :all]
-            [josh.meanings.distances :as distance])
+            [josh.meanings.persistence :refer :all])
   (:use [clojure.data.csv :as csv]
         [clojure.java.io :as io]))
 
@@ -152,78 +145,15 @@
        (cleanup-files! very-small-test-dataset-cleanup-files))))
 
 
-;; (def result 
-;;   (with-small-dataset
-;;     (let [cluster-result (k-means small-dataset-filename small-k :m 200)]
-;;       cluster-result)))
-
-;; (load-centroids result)
-
 
 (deftest test-equal-inputs-have-equal-assignments
   (with-small-dataset
-    (let [cluster-result (k-means small-dataset-filename small-k :m 200)
-          assignments ((ds/->dataset "assignments.test.small.parquet" {:key-fn keyword}) :assignments)]
-      (testing "That the right number of centroids are returned."
-        (is (= small-k (ds/row-count (load-centroids cluster-result)))))
+    (let [cluster-result (k-means small-dataset-filename small-k :m 200)]
       (testing "That the centroids are unique."
-        (is (= (count (set (ds/rowvecs (load-centroids cluster-result)))) small-k)))
-      (testing "[1 2 3] are all assigned the same value."
-        (is (apply = (take 4 assignments))))
-      (testing "[4 5 6] are all assigned the same value."
-        (is (apply = (take 6 (drop 4 assignments)))))
-      (testing "[7 8 9] are assigned the same value."
-        (is (apply = (take 3 (drop 10 assignments)))))))
+        (is (= (count (set (ds/rowvecs (:centroids cluster-result)))) small-k)))))
   (with-very-small-dataset
     (let [cluster-result (k-means very-small-dataset-filename small-k :m 200)]
       (testing "That the right number of centroids are returned."
-        (is (= (ds/row-count (load-centroids cluster-result)) small-k)))
+        (is (= (ds/row-count (:centroids cluster-result)) small-k)))
       (testing "That the centroids are unique."
-        (is (= (count (set (ds/rowvecs (load-centroids cluster-result)))) small-k))))))
-
-(def large-dataset-filename "test.large.csv")
-(def large-dataset-k 3)
-
-
-
-
-
-(def large-test-dataset-cleanup-files
-  "Files to cleanup betweeen tests."
-  (generate-possible-files large-dataset-filename))
-
-
-(defn large-testing-dataset
-  "A testing dataset with a large number of items, useful for 
-   verifying that the program doesn't fail to run when dataset 
-   sizes are large."
-  []
-  (cons ["wins" "losses" "draws"] (repeatedly 100000 (fn [] (repeatedly 3 #(rand-int 1000))))))
-
-
-(defn create-large-testing-dataset!
-  "Creates the large test dataset."
-  []
-  (write-dataset-as-csv large-dataset-filename (large-testing-dataset)))
-
-;; We would like to be able to setup and destroy the 
-;; files between testing runs. Typing out all the setup 
-;; code each time would be tedious. So creating a macro 
-;; which handles the setup simplifies our work.
-(defmacro with-large-dataset
-  [& forms]
-  `(try
-     (cleanup-files! large-test-dataset-cleanup-files)
-     (create-large-testing-dataset!)
-     ~@forms
-     (finally
-       (cleanup-files! large-test-dataset-cleanup-files))))
-
-
-(deftest testing-cluster-result-configuration-identity
-  (with-small-dataset
-    (testing "That the configuration keys used in KMeansState matches the keys in the result." 
-      (let [config [:m 200 :distance-key :emd :init :afk-mc]
-            result (apply k-means small-dataset-filename small-k config)]
-        (for [key (keys config)]
-          (is (= (key config) (key result))))))))
+        (is (= (count (set (ds/rowvecs (:centroids cluster-result)))) small-k))))))

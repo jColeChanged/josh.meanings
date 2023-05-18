@@ -34,13 +34,22 @@
    [uncomplicate.neanderthal.native :refer [fv]]
    [uncomplicate.neanderthal.vect-math :as vm]
    [clojure.core :as c]
+   [babashka.fs :as fs]
    [clj-fast.clojure.core :refer [get nth assoc get-in merge assoc-in update-in select-keys destructure let fn loop defn defn-]]
    [josh.meanings.distances :as distances]))
 
 
+
+(s/fdef qx-file :args (s/cat :conf :josh.meanings.specs/configuration) :ret string?)
+(defn qx-file
+  "Returns the path to the file where the qx column is stored."
+  [conf]
+  (let [file (:points conf)] (str (fs/path (fs/parent file) "qx.arrow"))))
+
+
 (def qx-column-name "qx")
 
-(s/fdef load-datasets-with-qx 
+(s/fdef load-datasets-with-qx
   :args (s/cat :conf :josh.meanings.specs/configuration)
   :ret :josh.meanings.specs/datasets)
 (defn load-datasets-with-qx
@@ -48,7 +57,7 @@
   [conf]
   (let [column-names (-> (:col-names conf)
                          (conj qx-column-name))]
-    (-> (p/read-dataset-seq "qx.arrow")
+    (-> (p/read-dataset-seq (qx-file conf))
         (p/select-columns-seq column-names))))
 
 
@@ -56,19 +65,18 @@
 (defn samples
   "Get all the samples we'll need for the markov chain."
   ([conf]
-   (ds/->dataset 
+   (ds/->dataset
     (weighted-sample (load-datasets-with-qx conf) qx-column-name (:m conf)))))
 
 
 (s/fdef qx-denominator-accelerated
-  :args (s/cat :device-context map? 
+  :args (s/cat :device-context map?
                :conf :josh.meanings.specs/configuration
                :cluster :josh.meanings.specs/dataset)
   :ret number?)
 (defn qx-denominator
   "Calculates the denominator of the q(x) distribution."
   [conf cluster]
-  (log/info "Calculating q(x) denominator using GPU.")
   (reduce + 0
           (->> (p/read-dataset-seq conf :points)
                (hfln/map (fn [ds] (dataset->dense ds :row :float32)))
@@ -88,7 +96,6 @@
 (defn- q-of-x
   "Computes the q(x) distribution for all x in the dataset on the GPU."
   ([conf cluster denominator]
-   (log/info "Calculating q(x) using GPUs.")
    (let [regularizer (qx-regularizer conf)
          cluster-matrix (distance/dataset->matrix conf cluster)
          qx (fn [matrix]
@@ -107,14 +114,13 @@
 
 
 
-(s/fdef q-of-x! 
+(s/fdef q-of-x!
   :args (s/cat :conf :josh.meanings.specs/configuration
                :clusters :josh.meanings.specs/dataset))
 (defn q-of-x!
   "Computes and saves the q(x) distribution for all x in the dataset."
   ([conf cluster]
-   (log/info "Computing q(x) distribution with respect to" cluster)
-   (p/write-datasets "qx.arrow"
+   (p/write-datasets (qx-file conf)
                      (q-of-x conf cluster (qx-denominator conf (distance/dataset->matrix conf cluster))))))
 
 
@@ -143,8 +149,8 @@
          (ds/select-columns (:col-names conf)))))
 
 
-(s/fdef find-next-cluster 
-  :args (s/cat :conf :josh.meanings.specs/configuration 
+(s/fdef find-next-cluster
+  :args (s/cat :conf :josh.meanings.specs/configuration
                :clusters :josh.meanings.specs/dataset)
   :ret :josh.meanings.specs/dataset)
 (defn find-next-cluster
@@ -159,22 +165,22 @@
 (defn k-means-assumption-free-mc-initialization
   [conf]
   (distances/with-gpu-context conf
-    (log/info "Performing afk-mc initialization with" conf)
     (let [initial-cluster (sample-one conf)
           k (:k conf)
           _ (q-of-x! conf initial-cluster)
           progress-bar (pr/progress-bar k)
+          _  (println "Sampling clusters...")
           final-clusters (loop [clusters initial-cluster]
                            (let [centroid-count (ds/row-count clusters)]
                              (pr/print (pr/tick progress-bar centroid-count))
                              (if (< centroid-count k)
                                (recur (ds/concat clusters (find-next-cluster conf clusters)))
                                clusters)))]
-      (pr/print (pr/done progress-bar))
+      (pr/print (pr/done (pr/tick progress-bar k)))
       final-clusters)))
 
 
 (defmethod initialize-centroids
-  :afk-mc 
+  :afk-mc
   [conf]
   (k-means-assumption-free-mc-initialization (add-default-chain-length conf)))

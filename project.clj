@@ -1,4 +1,4 @@
-(defproject org.clojars.joshua/josh.meanings (or (System/getenv "PROJECT_VERSION") "3.0.4")
+(defproject org.clojars.joshua/josh.meanings (or (System/getenv "PROJECT_VERSION") "3.0.7")
   :description "Clojure implementation of larger than memory K-Means clustering."
   :url "https://github.com/jcolechanged/josh.meanings"
   :license {:name "The MIT License"
@@ -7,13 +7,12 @@
                  [org.clojure/data.csv "1.0.1"]
                  [org.clojure/test.check "1.1.1"]
                  [org.clojure/tools.cli "1.0.206"]
-                 
+                 [babashka/fs "0.4.18"]
                  ;; [techascent/tech.ml.dataset "6.103"]
                  [techascent/tech.ml.dataset "7.000-beta-38"]
                  [generateme/fastmath "2.2.1"]
                  [uncomplicate/clojurecl "0.15.1"]
                  [uncomplicate/neanderthal "0.46.0"]
-                 [uncomplicate/clojurecl "0.15.1"]
                  [org.bytedeco/mkl-platform-redist "2022.2-1.5.8"]
                  [cnuernber/dtype-next "10.000-beta-48"]
                  ;; Arrow support 
