@@ -5,14 +5,15 @@
    the cluster is saved in, and some configuration details about how the clustering 
    process was run."
   (:require
-   [clojure.spec.alpha :as s]
    [josh.meanings.protocols.savable :refer [Savable]]
    [josh.meanings.specs]
-   [tech.v3.dataset :as ds]))
+   [tech.v3.dataset :as ds]
+   [clojure.spec.alpha :as s]))
 
 
 (defrecord ClusterResult 
-  [centroids      ;; The filename of the centroids dataset
+  [centroids      ;; The centroids
+   format         ;; The format that the datasets are saved in.
    cost           ;; The total distance between centroids and assignments
    configuration  ;; a map of details about the configuration used to generate the cluster result
    ])
@@ -46,10 +47,21 @@
   :args (s/cat :filename :josh.meanings.specs/filename)
   :ret ::cluster-result)
 (defn load-model
-  [filename]
+  "Loads a `ClusterResult` from the specified `filename`. Returns the `ClusterResult`.
+   
+   __Example Usage__
+   
+   To load a model from disk, first you need to save a model. This can be done 
+   with the `save-model` method:
+   
+   `(.save-model (k-mean 'dataset.csv' 5) 'cluster-result.edn')`
+   
+   Then you can load that model from with the load-model function:
+   
+   `(load-model 'cluster-result.edn')`
+   "
+  [^String filename]
   (-> filename 
       slurp 
-      read-string
-      (update :centroids ds/->dataset)
-      (update-in [:configuration :centroids] ds/->dataset)))
+      read-string))
 
