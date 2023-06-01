@@ -101,7 +101,10 @@
 (extend-type ClusterResult
   Classifier
   (assignments [this dataset-seq]
-    (assignments (:configuration this) dataset-seq)))
+    (let [config (-> this
+                     :configuration
+                     (assoc :centroids (:centroids this)))]
+      (assignments config dataset-seq))))
 
 
 (s/fdef calculate-objective :args (s/cat :s :josh.meanings.specs/configuration) :ret number?)

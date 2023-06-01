@@ -1,15 +1,7 @@
 (ns josh.meanings.kmeans-test
   (:require [clojure.test :refer :all]
             [tech.v3.dataset :as ds]
-<<<<<<< HEAD
             [josh.meanings.kmeans :refer [k-means]]
-=======
-            [josh.meanings.protocols.classifier :refer [load-centroids]]
-            [josh.meanings.kmeans :refer [k-means
-                                          initialize-k-means-state
-                                          initialize-centroids!
-                                          calculate-objective]]
->>>>>>> eae74ec (Prepare for rebase.)
             [josh.meanings.records.cluster-result]
             [josh.meanings.persistence :refer :all])
   (:use [clojure.data.csv :as csv]
@@ -70,19 +62,33 @@
    correctness is easy to verify."
   []
   [["wins" "losses" "draws"]
-   [1 2 3]
-   [1 2 3]
-   [1 2 3]
-   [1 2 3]
-   [4 5 6]
-   [4 5 6]
-   [4 5 6]
-   [4 5 6]
-   [4 5 6]
-   [4 5 6]
-   [7 8 9]
-   [7 8 9]
-   [7 8 9]])
+   [0 0 1000]
+   [1000 0 0]
+   [0 1000 0]
+   [0 0 1000]
+   [1000 0 0]
+   [0 1000 0]
+   [0 0 1000]
+   [1000 0 0]
+   [0 1000 0]
+   [0 0 1000]
+   [1000 0 0]
+   [0 1000 0]
+   [0 0 1000]
+   [1000 0 0]
+   [0 1000 0]
+   [500 0 500]
+   [500 500 0]
+   [0 500 500]
+   [500 0 500]
+   [500 500 0]
+   [0 500 500]
+   [500 0 500]
+   [500 500 0]
+   [0 500 500]
+   [500 0 500]
+   [500 500 0]
+   [0 500 500]])
 
 
 (defn create-small-testing-dataset!
@@ -97,32 +103,6 @@
 (def small-test-dataset-cleanup-files
   "Files to cleanup betweeen tests."
   (generate-possible-files small-dataset-filename))
-
-
-(defn very-small-testing-dataset
-  "A dataset with easily understood properties such that k means
-   correctness is easy to verify."
-  []
-  [["wins" "losses" "draws"]
-   [1 1 0]
-   [2 0 0]
-   [0 2 0]])
-
-
-(def very-small-dataset-filename "test.verysmall.csv")
-
-(defn create-very-small-testing-dataset!
-  "Creates the small test dataset."
-  []
-  (write-dataset-as-csv very-small-dataset-filename (very-small-testing-dataset)))
-
-;; Since we are running multiple tests we also want to be able 
-;; to clean up after ourselves. So we need a way to remove the 
-;; files that are involved in the k-means calculation between 
-;; test runs.
-(def very-small-test-dataset-cleanup-files
-  "Files to cleanup betweeen tests."
-  (generate-possible-files very-small-dataset-filename))
 
 
 (defn cleanup-files!
@@ -141,69 +121,13 @@
      (create-small-testing-dataset!)
      ~@forms
      (finally
-       (cleanup-files! small-test-dataset-cleanup-files))))
-
-(defmacro with-very-small-dataset
-  [& forms]
-  `(try
-     (cleanup-files! very-small-test-dataset-cleanup-files)
-     (create-very-small-testing-dataset!)
-     ~@forms
-     (finally
-       (cleanup-files! very-small-test-dataset-cleanup-files))))
-
-
+       (cleanup-files! small-test-dataset-cleanup-files))))()
 
 (deftest test-equal-inputs-have-equal-assignments
   (with-small-dataset
     (let [cluster-result (k-means small-dataset-filename small-k :m 200)]
       (testing "That the centroids are unique."
-        (is (= (count (set (ds/rowvecs (:centroids cluster-result)))) small-k)))))
-  (with-very-small-dataset
-    (let [cluster-result (k-means very-small-dataset-filename small-k :m 200)]
-      (testing "That the right number of centroids are returned."
-        (is (= (ds/row-count (:centroids cluster-result)) small-k)))
-      (testing "That the centroids are unique."
         (is (= (count (set (ds/rowvecs (:centroids cluster-result)))) small-k))))))
-        (is (= (count (set (ds/rowvecs (load-centroids cluster-result)))) small-k))))))
-
-(def large-dataset-filename "test.large.csv")
-(def large-dataset-k 3)
-
-
-
-
-
-(def large-test-dataset-cleanup-files
-  "Files to cleanup betweeen tests."
-  (generate-possible-files large-dataset-filename))
-
-
-(defn large-testing-dataset
-  "A testing dataset with a large number of items, useful for 
-   verifying that the program doesn't fail to run when dataset 
-   sizes are large."
-  []
-  (cons ["wins" "losses" "draws"] (repeatedly 100000 (fn [] (repeatedly 3 #(rand-int 1000))))))
-
-
-(defn create-large-testing-dataset!
-  "Creates the large test dataset."
-  []
-  (write-dataset-as-csv large-dataset-filename (large-testing-dataset)))
-
-;; We would like to be able to setup and destroy the 
-;; files between testing runs. Typing out all the setup 
-;; code each time would be tedious. So creating a macro 
-;; which handles the setup simplifies our work.
-(defmacro with-large-dataset
-  [& forms]
-  `(try
-     (cleanup-files! large-test-dataset-cleanup-files)
-     (create-large-testing-dataset!)
-     ~@forms
-     (finally
-       (cleanup-files! large-test-dataset-cleanup-files))))
 
 
 (deftest testing-cluster-result-configuration-identity

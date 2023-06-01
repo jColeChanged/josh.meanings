@@ -13,7 +13,6 @@
 
 (defrecord ClusterResult 
   [centroids      ;; The centroids
-   format         ;; The format that the datasets are saved in.
    cost           ;; The total distance between centroids and assignments
    configuration  ;; a map of details about the configuration used to generate the cluster result
    ])
@@ -39,8 +38,7 @@
   Savable
   (save-model [this filename]
     (spit filename (pr-str (-> this
-                               (update :centroids ds/rows)
-                               (update-in [:configuration :centroids] ds/rows))))))
+                               (update :centroids ds/rows))))))
 
 
 (s/fdef load-model
@@ -63,5 +61,6 @@
   [^String filename]
   (-> filename 
       slurp 
-      read-string))
+      read-string
+      (update :centroids ds/->dataset)))
 
