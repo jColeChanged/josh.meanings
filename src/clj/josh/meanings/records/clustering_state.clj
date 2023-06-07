@@ -3,7 +3,6 @@
    and a protocol for retreiving stateful IO like the potentially larger than 
    memory points and assignments datasets."
   (:require
-   [josh.meanings.protocols.clustering-state :refer [PClusteringState]]
    [josh.meanings.persistence :as persist]
    [tech.v3.dataset :as ds]))
 
@@ -19,31 +18,4 @@
             size-estimate     ;; An estimate of the size of the dataset.  Sometimes useful in initialization methods and sanity checks. 
             col-names         ;; The column names of the dataset used for clustering.
             use-gpu           ;; Whether to use GPU or not.
-            ]
-
-  PClusteringState
-
-  (load-centroids
-    [this]
-    (-> (:centroids this)
-        (ds/->dataset {:header-row? true})))
-
-  (load-points
-    [this]
-    (persist/read-dataset-seq this :points))
-
-  (load-assignments
-    [this]
-    (persist/read-dataset-seq this :points))
-
-  (column-names
-    [this]
-    (remove #{"assignments" "q(x)"}
-            (-> this
-                (persist/read-dataset-seq :points)
-                first
-                (ds/column-names))))
-  
-  (configuration 
-   [this]
-   (select-keys this [:k :init :distance-key :m :col-names])))
+            ])

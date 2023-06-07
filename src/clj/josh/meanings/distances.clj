@@ -33,7 +33,6 @@
   (:require [clj-fast.clojure.core :refer [assoc defn fn let]]
             [clojure.core :as c]
             [clojure.core.async :refer [chan]]
-            [clojure.spec.alpha :as s]
             [clojure.java.io :as io]
             [fastmath.distance :as fmdistances]
             [ham-fisted.lazy-noncaching :as hfln]
@@ -183,7 +182,7 @@
          min-prog (try
                     (build-program!
                      min-program
-                     (str "-DA_TYPE=" (-> k size->bytes bytes->type))
+                     (str "-DOTYPE=" (-> k size->bytes bytes->type))
                      channel)
                     (catch Exception _
                       (println (build-log min-program dev))))
@@ -373,7 +372,7 @@
   [cluster-count num-rows]
   (let [array-type (case (size->bytes cluster-count)
                      1
-                     char-array
+                     byte-array
                      2
                      short-array
                      4

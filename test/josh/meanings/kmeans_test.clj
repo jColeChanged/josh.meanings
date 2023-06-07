@@ -7,6 +7,7 @@
   (:use [clojure.data.csv :as csv]
         [clojure.java.io :as io]))
 
+
 ;; Given generators for centroids it should be possible to implement an 
 ;; identity test.check which checks an equivalence relation between finding 
 ;; the index of a value and classifying a value.
