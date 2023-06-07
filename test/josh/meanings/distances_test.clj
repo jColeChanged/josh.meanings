@@ -2,7 +2,7 @@
   (:require
    [clojure.string]
    [clojure.test :refer [deftest is testing]]
-   [josh.meanings.distances :refer [cpu-distance gpu-distance get-device-context teardown-device]]
+   [josh.meanings.distances :refer [size->bytes cpu-distance gpu-distance get-device-context teardown-device]]
    [tech.v3.dataset :as ds]
    [tech.v3.dataset.neanderthal :as dsn]))
 
@@ -50,3 +50,10 @@
                      (str-float-array cpu-dist))))
           (finally
             (teardown-device gpu-context)))))))
+
+
+(deftest test-size->bytes
+  (testing
+   (is (= 1 (size->bytes 250))))
+  (testing
+   (is (= 2 (size->bytes 500)))))

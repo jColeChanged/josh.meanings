@@ -131,6 +131,35 @@
    (:use-gpu conf)
    (contains? gpu-accelerated (:distance-key conf))))
 
+
+;; WHen working on the GPU we have to transfer data and back forth.  We want to do 
+;; that using the smallest sizes possible because data transfer between the GPU and 
+;; CPU represents a large fraction of the compute time.
+(defn size->bytes
+  "Returns the size in bytes needed to identify all centroid indices."
+  [size]
+  (cond
+    (< size (Math/pow 2 8))
+    1
+    (< size (Math/pow 2 16))
+    2
+    (< size (Math/pow 2 32))
+    4))
+
+
+(defn bytes->type
+  "Returns the type OpenCL uses to represent a given number of bytes."
+  [bytes]
+  (cond
+    (= bytes 1)
+    "uchar"
+
+    (= bytes 2)
+    "ushort"
+
+    (= bytes 4)
+    "uint"))
+
 ;; To the use the GPU we need to setup a context through which we will interact with the GPU.
 ;; There can be potentially many GPUs and we want to be able to leverage all of them to gain the 
 ;; maximum possible speed.
@@ -139,7 +168,7 @@
 
 (defn setup-device
   "Sets up an OpenCL device."
-  ([distance-configuration length dev]
+  ([k distance-configuration length dev]
    (let [ctx (context [dev])
          channel (chan)
          cqueue (command-queue ctx dev)
@@ -152,7 +181,10 @@
          min-program-source (slurp (io/resource "min_index.c"))
          min-program (program-with-source ctx [min-program-source]) 
          min-prog (try
-                    (build-program! min-program channel)
+                    (build-program!
+                     min-program
+                     (str "-DA_TYPE=" (-> k size->bytes bytes->type))
+                     channel)
                     (catch Exception _
                       (println (build-log min-program dev))))
          sum-program-source (slurp (io/resource "centroids.c"))
@@ -187,8 +219,9 @@
                  (first))
         distance-configuration (-> configuration
                                    :distance-key
-                                   gpu-accelerated)]
-    (setup-device distance-configuration (ncols matrix) device)))
+                                   gpu-accelerated)
+        k (-> configuration :k)]
+    (setup-device k distance-configuration (ncols matrix) device)))
 
 
 
@@ -331,6 +364,23 @@
          res)))))
 
 
+(defn create-min-index-buffer
+  "The number of clusters determines the type of the assignments."
+  [context cluster-count row-count]
+  (cl-buffer context (* row-count (size->bytes cluster-count)) :write-only))
+
+(defn create-min-index-result-array
+  [cluster-count num-rows]
+  (let [array-type (case (size->bytes cluster-count)
+                     1
+                     char-array
+                     2
+                     short-array
+                     4
+                     int-array)]
+    (array-type num-rows)))
+
+
 (defn gpu-distance-min-index
   "Evaluates many distances in parallel."
   ([device-context
@@ -342,8 +392,8 @@
          num-per (if (mod n global-size) (inc (quot n global-size)) (quot n global-size))
          global-work-size [global-size]
          work-size (work-size global-work-size)
-         host-msg ^java.nio.ByteBuffer (direct-buffer (* n Integer/BYTES))
          matrix-array ^java.nio.FloatBuffer (.buffer matrix)
+         min-indices (create-min-index-result-array num-clusters n)
          cqueue (:cqueue device-context)
          cl-centroids (:cl-centroids device-context)]
      (with-release [cl-result (cl-buffer (:ctx device-context) (* num-distances Float/BYTES) :read-write)
@@ -353,17 +403,13 @@
          (enq-write! cqueue cl-matrix matrix-array)
          (enq-kernel! cqueue cl-kernel work-size)
          (finish! cqueue))
-       (with-release [cl-min-indexes (cl-buffer (:ctx device-context) (* n Integer/BYTES) :write-only)
+       (with-release [cl-min-indexes (create-min-index-buffer (:ctx device-context) num-clusters n)
                       cl-min-kernel (kernel (:min-prog device-context) (:min-kernel device-context))]
          (set-args! cl-min-kernel cl-result cl-min-indexes (int-array [num-per]) (int-array [n]) (int-array [num-clusters]))
          (enq-kernel! cqueue cl-min-kernel work-size)
-         (enq-read! cqueue cl-min-indexes host-msg)
+         (enq-read! cqueue cl-min-indexes min-indices)
          (finish! cqueue)
-         (let [data ^java.nio.IntBuffer (.asIntBuffer host-msg)
-               res (int-array n)]
-           (dotimes [i n]
-             (aset res i (.get data)))
-           res)))))
+         min-indices))))
   ([device-context matrix assignments points]
    (let [num-clusters (:k device-context)
          n (mrows matrix)
@@ -372,8 +418,8 @@
          num-per (if (mod n global-size) (inc (quot n global-size)) (quot n global-size))
          global-work-size [global-size]
          work-size (work-size global-work-size)
-         host-msg ^java.nio.ByteBuffer (direct-buffer (* n Integer/BYTES))
          cqueue (:cqueue device-context)
+         min-indices (create-min-index-result-array num-clusters n)
          cl-centroids (:cl-centroids device-context)]
      (with-release [cl-result (cl-buffer (:ctx device-context) (* num-distances Float/BYTES) :read-write)]
        (with-release [cl-kernel (kernel (:prog device-context) (:kernel device-context))]
@@ -383,13 +429,10 @@
        (with-release [cl-min-kernel (kernel (:min-prog device-context) (:min-kernel device-context))]
          (set-args! cl-min-kernel cl-result assignments (int-array [num-per]) (int-array [n]) (int-array [num-clusters]))
          (enq-kernel! cqueue cl-min-kernel work-size)
-         (enq-read! cqueue assignments host-msg)
+         (enq-read! cqueue assignments min-indices)
          (finish! cqueue)
-         (let [data ^java.nio.IntBuffer (.asIntBuffer host-msg)
-               res (int-array n)]
-           (dotimes [i n]
-             (aset res i (.get data)))
-           res))))))
+         min-indices)))))
+
 
 
 

@@ -1,4 +1,4 @@
-(defproject org.clojars.joshua/josh.meanings (or (System/getenv "PROJECT_VERSION") "3.0.7")
+(defproject org.clojars.joshua/josh.meanings (or (System/getenv "PROJECT_VERSION") "3.0.8")
   :description "Clojure implementation of larger than memory K-Means clustering."
   :url "https://github.com/jcolechanged/josh.meanings"
   :license {:name "The MIT License"
