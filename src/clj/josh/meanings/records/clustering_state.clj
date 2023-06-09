@@ -1,11 +1,11 @@
 (ns josh.meanings.records.clustering-state
   "Provides a defrecord for storing the configuration of a clustering process 
    and a protocol for retreiving stateful IO like the potentially larger than 
-   memory points and assignments datasets."
-  (:require
-   [josh.meanings.persistence :as persist]
-   [tech.v3.dataset :as ds]))
+   memory points and assignments datasets.")
 
+
+(defprotocol PClusteringState 
+  (configuration [this]))
 
 (defrecord KMeansState
            [k                 ;; Number of clusters 
@@ -18,4 +18,9 @@
             size-estimate     ;; An estimate of the size of the dataset.  Sometimes useful in initialization methods and sanity checks. 
             col-names         ;; The column names of the dataset used for clustering.
             use-gpu           ;; Whether to use GPU or not.
-            ])
+            ]
+  
+  PClusteringState
+  (configuration 
+   [this]
+   (select-keys this [:k :init :distance-key :m :col-names])))

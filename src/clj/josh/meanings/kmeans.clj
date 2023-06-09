@@ -62,7 +62,7 @@
 
 (defn column-names
   [filepath]
-  (vec (remove #{"assignments" "q(x)"} (ds/column-names (first (persist/read-dataset-seq filepath))))))
+  (vec (remove #{"assignments" "q(x)" :assignments} (ds/column-names (first (persist/read-dataset-seq filepath))))))
 
 
 (defn initialize-k-means-state
@@ -87,7 +87,7 @@
 (defn assignments-api
   "Updates a sequence of assignment datasets with the new assignments."
   ([^KMeansState conf points-seq]
-   (let [assign (fn [ds] (assoc ds "assignments" (distances/minimum-index conf ds)))]
+   (let [assign (fn [ds] (assoc ds :assignments (distances/minimum-index conf ds)))]
      (hfln/map assign points-seq))))
 
 
@@ -128,6 +128,17 @@
   (= centroids-1 centroids-2))
 
 
+(defn update-centroids
+  [old-centroids new-centroids]
+  (let [column-present (complement (set (get new-centroids :assignments)))]
+    (ds/sort-by-column
+     (ds/concat
+      (ds/filter-column old-centroids :assignments column-present)
+      new-centroids)
+     :assignments)))
+
+
+
 (s/fdef lloyd :args (s/cat :conf :josh.meanings.specs/configuration
                            :initial-centroids :josh.meanings.specs/dataset))
 (defn lloyd ^ClusterResult [^KMeansState conf initial-centroids]
@@ -142,11 +153,12 @@
                 (pr/print (pr/tick progress-bar @progress))
                 (swap! progress inc)
                 (recur
-                 (distances/with-centroids centroids
-                   (dsr/group-by-column-agg
-                    "assignments"
-                    (zipmap column-names (map dsr/mean column-names))
-                    (assignments conf (persist/read-dataset-seq conf :points))))))
+                 (update-centroids centroids
+                                   (distances/with-centroids centroids
+                                     (dsr/group-by-column-agg
+                                      :assignments
+                                      (zipmap column-names (map dsr/mean column-names))
+                                      (assignments conf (persist/read-dataset-seq conf :points)))))))
               centroids))]
       (pr/print (pr/done (pr/tick progress-bar @progress)))
       (map->ClusterResult
@@ -158,7 +170,10 @@
 (defn k-means-via-file
   [points-filepath k & options]
   (let [^KMeansState conf (initialize-k-means-state points-filepath k (apply hash-map options))
-        centroids (initialize-centroids conf)]
+        centroids 
+        (assoc (initialize-centroids conf)
+               :assignments
+               (range 0 (:k conf)))]
     (distances/with-gpu-context conf (lloyd conf centroids))))
 
 

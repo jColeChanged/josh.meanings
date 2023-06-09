@@ -62,7 +62,7 @@
       (let [result-dataset (ds/->dataset {"col1" [1, 2, 3]
                                           "col2" [3, 4, 5]
                                           "col3" [6, 7, 8]
-                                          "assignments" [0, 1, 2]})]
+                                          :assignments [0, 1, 2]})]
         (let [configuration (-> test-cluster-result
                                 :configuration
                                 (assoc :centroids (:centroids test-cluster-result)))]
