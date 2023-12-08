@@ -60,12 +60,14 @@
   :source-paths ["src/clj" "src/kernels"]
   :profiles {:dev
              {:jvm-opts ["-Djdk.attach.allowAttachSelf"]
-              :global-vars {*warn-on-reflection* true  
+              :global-vars {*warn-on-reflection* true
                             *unchecked-math* :warn-on-boxed}
               :dependencies [[criterium "0.4.6"]
                              [com.clojure-goes-fast/clj-async-profiler "1.0.3"]
                              [com.clojure-goes-fast/clj-java-decompiler "0.3.4"]
-                             [com.clojure-goes-fast/clj-memory-meter "0.2.2"]]}}
+                             [com.clojure-goes-fast/clj-memory-meter "0.2.2"]]}
+             :notebook
+             {:dependencies [[io.github.nextjournal/clerk "0.15.957"]]}}
   :deploy-repositories [["clojars" {:url "https://repo.clojars.org"
                                     :sign-releases false
                                     :username :env/clojars_username
