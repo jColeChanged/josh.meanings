@@ -5,7 +5,6 @@
             :url "https://opensource.org/licenses/MIT"}
   :dependencies [[org.clojure/clojure "1.11.1"]
                  [org.clojure/data.csv "1.0.1"]
-                 [org.clojure/tools.cli "1.0.219"]
                  [babashka/fs "0.4.18"]
                  [techascent/tech.ml.dataset "7.021"]
                  [generateme/fastmath "2.2.1"]
@@ -38,7 +37,7 @@
                  [org.slf4j/log4j-over-slf4j "1.7.35"]
                  [com.taoensso/timbre "6.3.1"]
                  [net.java.dev.jna/jna "5.14.0"]
-                 [com.github.luben/zstd-jni "1.5.5-11"]
+                 [com.github.luben/zstd-jni "1.5.5-1"]
                  [org.apache.parquet/parquet-hadoop "1.13.0"
                   :exclusions [org.slf4j/slf4j-log4j12]]
                  [org.apache.hadoop/hadoop-common "3.3.0"
