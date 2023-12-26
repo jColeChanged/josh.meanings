@@ -223,7 +223,6 @@
     (setup-device k distance-configuration (ncols matrix) device)))
 
 
-
 ;; During Lloyd iteration it is common to re-use the same centroids while processing 
 ;; the same distance calculation.  In order to avoid having to write and rewrite the 
 ;; same centroid buffer once per sequence we split the writing of the centroid buffer 
@@ -368,6 +367,7 @@
   [context cluster-count row-count]
   (cl-buffer context (* row-count (size->bytes cluster-count)) :write-only))
 
+
 (defn create-min-index-result-array
   [cluster-count num-rows]
   (let [array-type (case (size->bytes cluster-count)
@@ -431,8 +431,6 @@
          (enq-read! cqueue assignments min-indices)
          (finish! cqueue)
          min-indices)))))
-
-
 
 
 ;; The GPU is so much faster than the CPU that we should be preferring 
