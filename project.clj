@@ -5,16 +5,14 @@
             :url "https://opensource.org/licenses/MIT"}
   :dependencies [[org.clojure/clojure "1.11.1"]
                  [org.clojure/data.csv "1.0.1"]
-                 [org.clojure/test.check "1.1.1"]
                  [org.clojure/tools.cli "1.0.206"]
                  [babashka/fs "0.4.18"]
-                 ;; [techascent/tech.ml.dataset "6.103"]
-                 [techascent/tech.ml.dataset "7.000-beta-38"]
+                 [techascent/tech.ml.dataset "7.021"]
                  [generateme/fastmath "2.2.1"]
                  [uncomplicate/clojurecl "0.15.1"]
                  [uncomplicate/neanderthal "0.46.0"]
                  [org.bytedeco/mkl-platform-redist "2022.2-1.5.8"]
-                 [cnuernber/dtype-next "10.000-beta-48"]
+                 [cnuernber/dtype-next "10.108"]
                  ;; Arrow support 
                  [org.apache.arrow/arrow-vector "6.0.0"
                   :exclusions [commons-codec/commons-codec
@@ -38,7 +36,7 @@
                  [org.slf4j/jul-to-slf4j "1.7.35"]
                  [org.slf4j/jcl-over-slf4j "1.7.35"]
                  [org.slf4j/log4j-over-slf4j "1.7.35"]
-                 [com.taoensso/timbre "6.0.4"]
+                 [com.taoensso/timbre "6.3.1"]
                  [net.java.dev.jna/jna "5.12.1"]
                  [com.github.luben/zstd-jni "1.5.4-1"]
                  [org.apache.parquet/parquet-hadoop "1.13.0"
@@ -63,6 +61,7 @@
               :global-vars {*warn-on-reflection* true
                             *unchecked-math* :warn-on-boxed}
               :dependencies [[criterium "0.4.6"]
+                             [org.clojure/test.check "1.1.1"]
                              [com.clojure-goes-fast/clj-async-profiler "1.0.3"]
                              [com.clojure-goes-fast/clj-java-decompiler "0.3.4"]
                              [com.clojure-goes-fast/clj-memory-meter "0.2.2"]]}
