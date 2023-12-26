@@ -70,6 +70,4 @@
   :deploy-repositories [["clojars" {:url "https://repo.clojars.org"
                                     :sign-releases false
                                     :username :env/clojars_username
-                                    :password :env/clojars_password}]]
-  :aot [josh.meanings.cli]
-  :main josh.meanings.cli)
+                                    :password :env/clojars_password}]])
