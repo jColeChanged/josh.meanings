@@ -47,17 +47,17 @@
                  [org.apache.hadoop/hadoop-mapreduce-client-core  "3.3.0"
                   :exclusions [org.slf4j/slf4j-log4j12]]
                  [org.clojars.joshua/sampling "3.3"]]
-  :jvm-opts ["-XX:+TieredCompilation"
-             "-Xss20m"
-             "--add-modules" "jdk.incubator.foreign,jdk.incubator.vector"
-             "--enable-native-access=ALL-UNNAMED"
-             "--add-opens=java.base/jdk.internal.ref=ALL-UNNAMED"
-             "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"]
   :plugins [[org.clojars.joshua/josh.benchmarking "0.0.4"]]
   :repl-options {:init-ns josh.meanings.kmeans}
   :source-paths ["src/clj" "src/kernels"]
   :profiles {:dev
-             {:jvm-opts ["-Djdk.attach.allowAttachSelf"]
+             {:jvm-opts ["-Djdk.attach.allowAttachSelf"
+                         "-XX:+TieredCompilation"
+                         "-Xss20m"
+                         "--add-modules" "jdk.incubator.foreign,jdk.incubator.vector"
+                         "--enable-native-access=ALL-UNNAMED"
+                         "--add-opens=java.base/jdk.internal.ref=ALL-UNNAMED"
+                         "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"]
               :global-vars {*warn-on-reflection* true
                             *unchecked-math* :warn-on-boxed}
               :dependencies [[criterium "0.4.6"]

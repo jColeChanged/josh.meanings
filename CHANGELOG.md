@@ -6,6 +6,17 @@ For releases before version [1.0.0] this project *did not* follow [semver](https
 For releases after version 1.0.0 this project *will* follow semver, with the addition that minor 
 releases might only add additional tests and/or documentation updates rather than bug fixes.
 
+## [13.0.4] - 2023-12-26
+
+This releases gets working support for GPU backed emd calculations up 
+to <256 categories.  It supports dataset sizes that other k means 
+implementations I've tried fail to support.  It is also faster than 
+most other k means implementations I've tried in part because it uses 
+a better algorithm than k-means++.
+
+However, if you aren't on the happy path of EMD and k-means-afk this 
+release probably breaks everything.
+
 ## [1.0.0] - 2022-12-04
 
 This release improves the usability of loading and saving clustered models.
