@@ -1,5 +1,7 @@
 # josh.meanings
 
+[![CircleCI](https://circleci.com/gh/jColeChanged/josh.meanings.svg?style=shield&circle-token=a4b905e7d28f1f397566185359251b3d7d959818)](https://app.circleci.com/pipelines/github/jColeChanged/josh.meanings?filter=main)
+
 This is a program for computing k-means in Clojure.  It is built to handle workloads which are medium data, 
 which means they involve datasets which are too large to fit in memory, but not so large that the computation 
 cannot be persisted to disk.
@@ -14,8 +16,6 @@ K-means implementation quite a bit faster than other implementations.
 > [!WARNING]
 > Currently, the default pathway of using the GPU for EMD clustering is implemented, but
 > contributors are needed to bring support for other distance functions.
-
-[![CircleCI](https://circleci.com/gh/jColeChanged/josh.meanings.svg?style=shield&circle-token=a4b905e7d28f1f397566185359251b3d7d959818)](https://app.circleci.com/pipelines/github/jColeChanged/josh.meanings?filter=main) [![Clojars Project](https://img.shields.io/clojars/v/org.clojars.joshua/josh.meanings.svg)](https://clojars.org/org.clojars.joshua/josh.meanings)
 
 # Installation
 
