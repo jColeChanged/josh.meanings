@@ -1,24 +1,21 @@
 # josh.meanings
 
-Warning: Only the default pathway of GPU using EMD clustering 
-using Arrow datasets has any testing or expectation of fitness 
-for purpose.  If you don't have data larger than memory which 
-you want to cluster on a single machine using a GPU then this 
-is not the k means clustering application for you.
+This is a program for computing k-means in Clojure.  It is built to handle workloads which are medium data, 
+which means they involve datasets which are too large to fit in memory, but not so large that the computation 
+cannot be persisted to disk.
+
+Unlike most other K-means implementations we employ several techniques which lend themselves toward making this 
+K-means implementation quite a bit faster than other implementations.
+
+1. We leverage memory mapping of the datasets.
+2. We do our distance calculations on the GPU.
+3. We implement initialization schemes from more recent research.
+
+> [!WARNING]
+> Currently, the default pathway of using the GPU for EMD clustering is implemented, but
+> contributors are needed to bring support for other distance functions.
 
 [![CircleCI](https://circleci.com/gh/jColeChanged/josh.meanings.svg?style=shield&circle-token=a4b905e7d28f1f397566185359251b3d7d959818)](https://app.circleci.com/pipelines/github/jColeChanged/josh.meanings?filter=main) [![Clojars Project](https://img.shields.io/clojars/v/org.clojars.joshua/josh.meanings.svg)](https://clojars.org/org.clojars.joshua/josh.meanings)
-
-A mean is a center of points. A means, a way of accomplishing 
-that which is sought. Meaning, the latent concept vector that 
-does not vary even though the words which express it might. 
-This library though? The central idea behind it is to provide 
-you a means of finding means so that you might come to know 
-meanings through the process of repeatedly calculating means. 
-
-This is a program for computing k-means in Clojure. 
-It is built to handle workloads which involve datasets 
-which are too large to fit in memory, but not so large that 
-the computation cannot be persisted to disk. 
 
 # Installation
 
