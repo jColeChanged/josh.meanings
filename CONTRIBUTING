@@ -1,0 +1,35 @@
+# How to contribute
+
+I'm really glad you're reading this, because we need volunteer developers to help this project come to fruition.
+
+If you're looking for ideas of how to contribute check out GitHub Issues page.  Issues marked with `help-wanted` 
+and `good-first-issue` are great issues to start with.  Once you're more familiar with the project you can narrow 
+it down to just `help-wanted` issues.
+
+If you're using the project and want to suggest something new be added to the project, open a GitHub issues so 
+we can discuss your ideas.
+
+Right now the goals for this is project are pretty simple.  We want to widen support for different distance functions 
+so that we have fast computation with more than just earth mover distance, expand the tests to improve confidence 
+that clusters are computed correctly, make it easier for people to contribute, and provide benchmarks which show just 
+how fast this project is relative to peer projects.
+
+# Testing
+
+We're using `lein` to run tests.  So to run tests locally you can use the command `lein test`. We're using CircleCI for 
+integration testing.  So when you open a pull request tests should be run automatically in CircleCI.  An important thing 
+to realize about testing is that this project is intended to be a GPU-enabled project with support for CPU being a fallback.
+So without a GPU tests will fail.
+
+When opening a GitHub Pull Request to the project please be sure to include a clear list of what you've done as well as a 
+reference to the issue you're working on.  We hope for changes to functoinality to include an expansion of test coverage.  
+
+Please make sure all of your commits are atomic (one feature per commit). Always 
+write a clear log message for your commits. One-line messages are fine for small changes, but bigger changes should look like this:
+
+$ git commit -m "A brief summary of the commit
+> 
+> A paragraph describing what changed and its impact."
+
+Thanks,
+Joshua Cole
