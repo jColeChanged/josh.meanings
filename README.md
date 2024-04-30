@@ -1,6 +1,6 @@
 # josh.meanings
 
-[![CircleCI](https://circleci.com/gh/jColeChanged/josh.meanings.svg?style=shield&circle-token=a4b905e7d28f1f397566185359251b3d7d959818)](https://app.circleci.com/pipelines/github/jColeChanged/josh.meanings?filter=main)
+[![CircleCI](https://circleci.com/gh/jColeChanged/josh.meanings.svg?style=svg)](https://circleci.com/gh/jColeChanged/josh.meanings.svg?style=svg)
 
 This is a program for computing k-means in Clojure.  It is built to handle workloads which are medium data, 
 which means they involve datasets which are too large to fit in memory, but not so large that the computation 
