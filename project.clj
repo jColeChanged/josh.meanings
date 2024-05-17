@@ -9,8 +9,8 @@
                  [techascent/tech.ml.dataset "7.021"]
                  [generateme/fastmath "2.2.1"]
                  [uncomplicate/clojurecl "0.15.1"]
-                 [uncomplicate/neanderthal "0.46.0"]
-                 [org.bytedeco/mkl-platform-redist "2022.2-1.5.8"]
+                 [uncomplicate/neanderthal "0.49.1"]
+                 [org.bytedeco/mkl "2024.0-1.5.10" :classifier linux-x86_64-redist]
                  [cnuernber/dtype-next "10.108"]
                  ;; Arrow support 
                  [org.apache.arrow/arrow-vector "6.0.0"
@@ -56,8 +56,7 @@
                          "--add-modules" "jdk.incubator.foreign,jdk.incubator.vector"
                          "--enable-native-access=ALL-UNNAMED"
                          "--add-opens=java.base/jdk.internal.ref=ALL-UNNAMED"
-                         "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"
-                         ]
+                         "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"]
               :global-vars {*warn-on-reflection* true
                             *unchecked-math* :warn-on-boxed}
               :dependencies [[criterium "0.4.6"]
