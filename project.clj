@@ -6,12 +6,13 @@
   :dependencies [[org.clojure/clojure "1.11.1"]
                  [org.clojure/data.csv "1.0.1"]
                  [babashka/fs "0.4.18"]
-                 [techascent/tech.ml.dataset "7.021"]
-                 [generateme/fastmath "2.2.1"]
-                 [uncomplicate/clojurecl "0.15.1"]
-                 [uncomplicate/neanderthal "0.46.0"]
-                 [org.bytedeco/mkl-platform-redist "2022.2-1.5.8"]
-                 [cnuernber/dtype-next "10.108"]
+                 [techascent/tech.ml.dataset "7.023"]
+                 [generateme/fastmath "2.3.0" :exclusions [org.bytedeco/javacpp]]              
+                 [uncomplicate/neanderthal "0.53.2"]
+                 [org.bytedeco/mkl "2024.0-1.5.10" :classifier linux-x86_64-redist]
+                 [uncomplicate/clojurecl "0.16.0"]
+                 
+                 [cnuernber/dtype-next "10.122"]
                  ;; Arrow support 
                  [org.apache.arrow/arrow-vector "6.0.0"
                   :exclusions [commons-codec/commons-codec
