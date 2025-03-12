@@ -6,6 +6,11 @@ For releases before version [1.0.0] this project *did not* follow [semver](https
 For releases after version 1.0.0 this project *will* follow semver, with the addition that minor 
 releases might only add additional tests and/or documentation updates rather than bug fixes.
 
+## [13.0.5] - 2025-03-12
+
+Bumped versions of various dependencies. 
+
+
 ## [13.0.4] - 2023-12-26
 
 This releases gets working support for GPU backed emd calculations up 
