@@ -19,7 +19,7 @@
             [babashka.fs :as fs]))
 
 ;; CSV was extremely slow. Arrow failed to load really large files.
-;; Arrows failed to write extremely small files. So I wanted to try 
+;; Arrow failed to write extremely small files. So I wanted to try 
 ;; parquet but didn't want to continually have to rewrite parsing 
 ;; logic as I moved between different file formats. Therefore, I made the 
 ;; format used a configuration option rather than a hardcoded function 

@@ -1,4 +1,4 @@
-(ns josh.meanings.initializations.niave
+(ns josh.meanings.initializations.naive
   "A random initialization strategy for k means which lacks theoretical 
    guarantees on solution quality for any individual run, but which will 
    complete in O(n + k*d) time and only takes O(k*d) space."
@@ -16,8 +16,8 @@
 (def t-config :josh.meanings.specs/configuration)
 (def t-dataset :josh.meanings.specs/dataset)
 
-(s/fdef niave-initialization :args (s/cat :config t-config) :ret t-dataset)
-(defn- niave-initialization [config]
+(s/fdef naive-initialization :args (s/cat :config t-config) :ret t-dataset)
+(defn- naive-initialization [config]
   {:pre [(is (s/valid? t-config config))] :post [(is (s/valid? t-dataset %))]}
   (log/info "Performing classical (naive) k means initialization")
   (centroids->dataset
@@ -26,6 +26,6 @@
 
 
 (defmethod initialize-centroids
-  :niave
+  :naive
   [k-means-state]
-  (niave-initialization k-means-state))
+  (naive-initialization k-means-state))

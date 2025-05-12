@@ -60,10 +60,10 @@
 
 ;; What is a good weighted sampling algorithm for sampling k items from a large collection?
 ;; 
-;; Weighted resevoir sampling was researched by Pavlos Efraimidis and Paul Spirakis and a summary of 
+;; Weighted reservoir sampling was researched by Pavlos Efraimidis and Paul Spirakis and a summary of 
 ;; their research can be found in Weighted Random Sampling [1][2]. 
 ;;
-;; In pseducodoe the algorithm can be described in only one line:
+;; In pseudocode the algorithm can be described in only one line:
 ;;
 ;; heapq.nlargest(k, items, key=lambda item: math.pow(random.random(), 1/weight(item)))
 ;;
@@ -73,7 +73,7 @@
 ;; Java's PriorityQueue class implements a priority heap.  By default it expects to a min heap so 
 ;; reversing the comparator produces a max heap."
   
-(def resevoir-sampling-max-heap-comparator
+(def reservoir-sampling-max-heap-comparator
   (reify java.util.Comparator
     (compare
      [this item1 item2]
@@ -84,13 +84,13 @@
   "Returns a max heap."
   ^java.util.PriorityQueue
   [k]
-  (new java.util.PriorityQueue k resevoir-sampling-max-heap-comparator))
+  (new java.util.PriorityQueue k reservoir-sampling-max-heap-comparator))
 
 (defn parallel-max-heap
   "Returns a max heap."
   ^java.util.concurrent.PriorityBlockingQueue
   [k]
-  (new java.util.concurrent.PriorityBlockingQueue k resevoir-sampling-max-heap-comparator))
+  (new java.util.concurrent.PriorityBlockingQueue k reservoir-sampling-max-heap-comparator))
 
 
 (s/fdef generate-random-buffer :args (s/cat :dataset t-dataset))
@@ -109,7 +109,7 @@
 ;; 
 ;; 7. Test version which uses random column provided by tech.ml.dataset.
 ;; 8. Test version which does full res-rank calculation in neanderthal.
-(defn resevoir-rank
+(defn reservoir-rank
   [dataset column-name]
   (let [rand-dataset (ds/rename-columns (ds-nean/dense->dataset (generate-random-buffer dataset)) [:random])]
     (assoc dataset :res-rank (dfn/pow (rand-dataset :random) (dfn// 1 (dataset column-name))))))
@@ -141,7 +141,7 @@
                        acc)
         ^java.util.concurrent.PriorityBlockingQueue q
         (->> ds-seq
-             (hfl/map (fn [dataset] (resevoir-rank dataset weight-col)))
+             (hfl/map (fn [dataset] (reservoir-rank dataset weight-col)))
              (hamfr/preduce (partial parallel-max-heap k) add-to-queue merge-queues))]
     (->> q
          (.iterator)
@@ -189,7 +189,7 @@
   "Analyzes the chain length and emits warnings if necessary."
   [config]
   (when (> (:m config) (:size-estimate config))
-		;; the monte carlo sampling is intended to approximate the sampling distrubtion 
+		;; the monte carlo sampling is intended to approximate the sampling distribution 
 		;; computed relative to the entire dataset which is constructed during k means++ 
 		;; computation. A larger sample size results in a better approximation, eventually 
 		;; converging to the true sampling distribution - at which point the monte carlo simulation 
@@ -221,14 +221,14 @@
 	 doing sampling. Although callers can pass in a chain length 
 	 there are some dangers when doing so - for example if the 
 	 chain length is low it won't necessarily approximate k means 
-	 plus plus. Meanwhile if the chian length is too low then 
+	 plus plus. Meanwhile if the chain length is too low then 
 	 there will be no point in doing sampling at all - we could 
 	 just use k means plus plus rather than approximating it.
 
 	 This function checks to see if a chain length is set and if 
 	 one is then it does nothing, but it nothing is set it uses 
-	 the formulas provided in the k means plus plus apporximation 
-	 papers to ddetermine a reasonable chain length."
+	 the formulas provided in the k means plus plus approximation 
+	 papers to determine a reasonable chain length."
   [conf]
   (->
    (if (should-update-chain-length? conf)

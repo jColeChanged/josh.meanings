@@ -20,7 +20,7 @@
    [clojure.spec.alpha :as s]
    [fastmath.core]
    [ham-fisted.lazy-noncaching :as hfln]
-   [josh.meanings.distances :as distance]
+   [josh.meanings.distances :as distances]
    [josh.meanings.initializations.core :refer [initialize-centroids]]
    [josh.meanings.initializations.utils
     :as utils
@@ -35,8 +35,7 @@
    [uncomplicate.neanderthal.vect-math :as vm]
    [clojure.core :as c]
    [babashka.fs :as fs]
-   [clj-fast.clojure.core :refer [get nth assoc get-in merge assoc-in update-in select-keys destructure let fn loop defn defn-]]
-   [josh.meanings.distances :as distances]))
+   [clj-fast.clojure.core :refer [get nth assoc get-in merge assoc-in update-in select-keys destructure let fn loop defn defn-]]))
 
 
 
@@ -130,9 +129,9 @@
                :clusters :josh.meanings.specs/dataset)
   :ret :josh.meanings.specs/dataset)
 (defn mcmc-sample
-  "Perform markov chain monte carlo sampling to approxiate D^2 sampl ing"
+  "Perform markov chain monte carlo sampling to approximate D^2 sampling"
   [conf points clusters]
-  (let [min-dists (distance/minimum-distance conf points clusters)
+  (let [min-dists (distances/minimum-distance conf points clusters)
         dxqx      (vm/mul min-dists (fv (get points qx-column-name)))
         rands     (ne/view-vctr (utils/generate-random-buffer points))
         cluster-index (reduce
