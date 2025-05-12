@@ -30,7 +30,6 @@
   (:refer-clojure
    :exclude
    [get nth assoc get-in merge assoc-in update-in select-keys destructure let fn loop defn defn-])
-  (:use [uncomplicate.neanderthal core native])
   (:require
    [clj-fast.clojure.core :refer [assoc defn fn let]]
    [clojure.core :as c]
@@ -41,18 +40,19 @@
    [josh.meanings.persistence :as p]
    [tech.v3.dataset :as ds]
    [tech.v3.dataset.neanderthal :refer [dataset->dense]]
-   [uncomplicate.clojurecl.core :refer [build-program! cl-buffer
-                                        command-queue devices
-                                        enq-kernel! enq-read!
-                                        enq-write! finish! kernel
-                                        platforms program-with-source
-                                        set-args! work-size context]]
-   [uncomplicate.clojurecl.info :refer [build-log]]
+   [uncomplicate.clojurecl
+             [core :as cl :refer :all]
+             [info :refer :all]]
+   [uncomplicate.clojurecl.core :refer :all]
+   [uncomplicate.clojurecl.info :refer :all]
    [uncomplicate.commons
-    [core :as clojurecl :refer [with-release]]
-    [utils :refer [direct-buffer]]]
+             [core :as clojurecl :refer [with-release]]
+             [utils :refer [direct-buffer]]]
+   [uncomplicate.neanderthal.block :refer [buffer]]
    [uncomplicate.neanderthal.core :refer [entry imin mrows ncols rows]]
-   [uncomplicate.neanderthal.native :refer [fge fv]]))
+   [uncomplicate.neanderthal.native :refer [fge fv]]) 
+  (:import
+   [org.bytedeco.javacpp FloatPointer]))
 
 (set! *warn-on-reflection* true)
 
