@@ -22,10 +22,10 @@ to realize about testing is that this project is intended to be a GPU-enabled pr
 So without a GPU tests will fail.
 
 When opening a GitHub Pull Request to the project please be sure to include a clear list of what you've done as well as a 
-reference to the issue you're working on.  We hope for changes to functoinality to include an expansion of test coverage.  
+reference to the issue you're working on. We hope for changes to functionality to include an expansion of test coverage.
 
-Please make sure all of your commits are atomic (one feature per commit). Always 
-write a clear log message for your commits. One-line messages are fine for small changes, but bigger changes should look like this:
+Please make sure all of your commits are atomic (one feature per commit). Always write a clear log message for your commits. 
+One-line messages are fine for small changes, but bigger changes should look like this:
 
 $ git commit -m "A brief summary of the commit
 > 

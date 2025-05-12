@@ -15,6 +15,6 @@
 (def initialization-keys
   [:afk-mc
    :k-mc-squared
-   :niave
+   :naive
    :k-means-parallel
    :k-means-++])

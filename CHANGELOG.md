@@ -10,6 +10,9 @@ releases might only add additional tests and/or documentation updates rather tha
 
 Bumped versions of various dependencies. 
 
+## [13.0.41] - 2024-05-17
+
+This release bumps up dependency versions.
 
 ## [13.0.4] - 2023-12-26
 

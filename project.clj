@@ -3,16 +3,16 @@
   :url "https://github.com/jcolechanged/josh.meanings"
   :license {:name "The MIT License"
             :url "https://opensource.org/licenses/MIT"}
-  :dependencies [[org.clojure/clojure "1.11.1"]
+  :dependencies [[org.clojure/clojure "1.11.3"]
                  [org.clojure/data.csv "1.0.1"]
                  [babashka/fs "0.4.18"]
-                 [techascent/tech.ml.dataset "7.023"]
-                 [generateme/fastmath "2.3.0" :exclusions [org.bytedeco/javacpp]]              
-                 [uncomplicate/neanderthal "0.53.2"]
+
+                 [techascent/tech.ml.dataset "7.030"]
+                 [generateme/fastmath "2.4.0"]
+                 [uncomplicate/neanderthal "0.49.1"]
                  [org.bytedeco/mkl "2024.0-1.5.10" :classifier linux-x86_64-redist]
-                 [uncomplicate/clojurecl "0.16.0"]
-                 
-                 [cnuernber/dtype-next "10.122"]
+                 [org.bytedeco/cuda "12.3-8.9-1.5.10" :classifier linux-x86_64-redist]
+                 [cnuernber/dtype-next "10.113"]
                  ;; Arrow support 
                  [org.apache.arrow/arrow-vector "6.0.0"
                   :exclusions [commons-codec/commons-codec
@@ -57,8 +57,7 @@
                          "--add-modules" "jdk.incubator.foreign,jdk.incubator.vector"
                          "--enable-native-access=ALL-UNNAMED"
                          "--add-opens=java.base/jdk.internal.ref=ALL-UNNAMED"
-                         "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"
-                         ]
+                         "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"]
               :global-vars {*warn-on-reflection* true
                             *unchecked-math* :warn-on-boxed}
               :dependencies [[criterium "0.4.6"]

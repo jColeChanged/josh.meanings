@@ -54,7 +54,7 @@
 
 
 (defn estimate-size
-  "Estimates the number of rows in the datset at filepath."
+  "Estimates the number of rows in the dataset at filepath."
   [filepath]
   (let [stats (dsr/aggregate {"n" (dsr/row-count)} (persist/read-dataset-seq filepath))]
     (first (get stats "n"))))

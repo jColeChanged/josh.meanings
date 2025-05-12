@@ -24,9 +24,9 @@ K-means implementation quite a bit faster than other implementations.
 ## Getting Started
 
 ```
-(require `[josh.meanings.kmeans :refer [k-means k-means-seq]
-         `[josh.meanings.protocols.savable :refer [save-model]]
-         `[josh.meanings.protocols.classifer :refer [classify load-centroids load-assignments]])
+(require '[josh.meanings.kmeans :refer [k-means k-means-seq]]
+         '[josh.meanings.protocols.savable :refer [save-model]]
+         '[josh.meanings.protocols.classifier :refer [classify load-centroids load-assignments]])
 
 
 ;; Get a dataset.  You can pass in your dataset under a variety of formats. 
@@ -44,7 +44,7 @@ K-means implementation quite a bit faster than other implementations.
 ;; some k means initializations don't give guarantees on the quality of a solution 
 ;; and so you can get better results by running k means multiple times and taking 
 ;; the best result.
-(def model (apply min-key :cost (take k-tries (k-means-seq cluster-dataset-name k)))))
+(def model (apply min-key :cost (take k-tries (k-means-seq cluster-dataset-name k))))
 
 ;; Once you have a model you can save it.
 (def model-path (.save-model model))

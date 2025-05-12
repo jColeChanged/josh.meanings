@@ -19,13 +19,13 @@
 
    The default distance function is :emd which may not be appropriate for all
    use cases since it doesn't minimize the variational distance like euclidean
-   would.  If you don't know why :emd is the default you should probably switch 
+   would. If you don't know why :emd is the default you should probably switch 
    to using :euclidean.
    
    For some distance functions GPU support can be enabled by setting the :use-gpu 
-   flag to True.  GPU distance support is availalbe for:
+   flag to True. GPU distance support is available for:
 
-    - :emd
+   - :emd
    "
   (:refer-clojure
    :exclude
@@ -60,7 +60,7 @@
 ;; functions. So I'm going to implement distance as a multimethod that 
 ;; way people can choose to provide their own. 
 ;; 
-;; However, this isn't like with initilaization method. We're going to 
+;; However, this isn't like with the initialization method. We're going to 
 ;; be calling this as part of our inner loop. In an inner-loop it makes 
 ;; little to no sense to continually get the distance we want to use. 
 ;; 
@@ -360,8 +360,8 @@
                     cl-centroids (cl-buffer (:ctx device-context) (* num-clusters (ncols centroids) Float/BYTES) :read-only)
                     cl-kernel (kernel (:prog device-context) (:kernel device-context))]
        (set-args! cl-kernel cl-result cl-matrix cl-centroids (int-array [num-per]) (int-array [n]) (int-array [num-clusters]))
-       (enq-write! cqueue cl-matrix matrix-array)  ;; ✅ Use `float[]`
-       (enq-write! cqueue cl-centroids centroids-array)  ;; ✅ Use `float[]`
+       (enq-write! cqueue cl-matrix matrix-array) 
+       (enq-write! cqueue cl-centroids centroids-array) 
        (enq-kernel! cqueue cl-kernel work-size)
        (enq-read! cqueue cl-result host-msg)
        (finish! cqueue)

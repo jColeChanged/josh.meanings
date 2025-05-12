@@ -11,8 +11,6 @@
    [tech.v3.datatype.functional :as dfn]
    [uncomplicate.neanderthal.core :refer [matrix?]]))
 
-
-
 (s/def ::number number?)
 (s/def ::point (s/coll-of ::number :min-count 1))
 (s/def ::points (s/coll-of :point :min-count 1))
@@ -51,7 +49,6 @@
                      (partial apply gen-dataset)
                      (s/gen (s/cat :k ::k :d ::d)))))
 
-
 (s/def ::col-name string?)
 (s/def ::col-names (s/coll-of ::col-name :distinct true))
 
@@ -85,9 +82,6 @@
 
 (s/def ::format-key (set (keys formats)))
 
-
-
-
 (s/def ::configuration
   (s/keys :req-un
           [:josh.meanings.specs/k
@@ -100,8 +94,6 @@
            ifn?
            :josh.meanings.specs/m
            ifn?]))
-
-
 
 (s/def ::filename (s/and string? futils/file?))
 

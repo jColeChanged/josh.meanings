@@ -58,10 +58,10 @@
 
 (s/fdef mcmc-sample :args (s/cat :distance-fn ifn? :c t-point :rsp t-points) :ret t-points)
 (defn- mcmc-sample
-  "Perform markov chain monte carlo sampling to approxiate D^2 sampling"
+  "Perform markov chain monte carlo sampling to approximate D^2 sampling"
   [weight-fn c rsp]
 
-  ;; not special casing first selection because it decomplicates the 
+  ;; Not special casing first selection because it simplifies the 
   ;; inner loop code so that we're doing the same thing each time 
   ;; without requiring a wrapping let
   (loop [ps rsp
