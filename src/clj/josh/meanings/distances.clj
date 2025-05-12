@@ -231,13 +231,19 @@
 ;; same centroid buffer once per sequence we split the writing of the centroid buffer 
 ;; from the writing of the dataset.
 (defn write-centroids-buffer!
-  [gpu-context ^uncomplicate.neanderthal.internal.host.buffer_block.RealGEMatrix centroids]
-  (let [k (mrows centroids)
-        centroids-array ^java.nio.FloatBuffer (.buffer centroids) 
-        cqueue (:cqueue @gpu-context) 
+  [gpu-context centroids]
+  (let [cqueue (:cqueue @gpu-context)
         ctx (:ctx @gpu-context)
-        cl-centroids (cl-buffer ctx (.capacity centroids-array) :read-only)]
+        k (mrows centroids)
+        cols (ncols centroids)
+        cl-centroids (cl-buffer ctx (* k cols Float/BYTES) :read-only) 
+        centroids-ptr (buffer centroids) 
+        centroids-array (float-array (.capacity centroids-ptr))] 
+
+    (.get centroids-ptr centroids-array)
+
     (enq-write! cqueue cl-centroids centroids-array)
+
     (swap! gpu-context assoc :cl-centroids cl-centroids)
     (swap! gpu-context assoc :k k)))
 
@@ -303,62 +309,63 @@
 ;; calculation but instead of returning the actual distance itself the returned 
 ;; value is the index of the distance.  This is the distance calculation method 
 ;; used when assigning clusterings during typical k means iterations.
-
-
 (defn gpu-distance
   "Evaluates many distances in parallel."
-  ([device-context
-    ^uncomplicate.neanderthal.internal.host.buffer_block.RealGEMatrix matrix]
+  ([device-context matrix]
    (let [num-clusters (:k device-context)
          n (mrows matrix)
          num-distances (* n num-clusters)
          global-size 1024
-         num-per (if (mod n global-size) (inc (quot n global-size)) (quot n global-size))
+         num-per (if (pos? (mod n global-size)) (inc (quot n global-size)) (quot n global-size))
          global-work-size [global-size]
          work-size (work-size global-work-size)
-         host-msg ^java.nio.ByteBuffer (direct-buffer (* num-distances Float/BYTES))
-         matrix-array ^java.nio.FloatBuffer (.buffer matrix)
+         host-msg (direct-buffer (* num-distances Float/BYTES))
+         matrix-ptr (buffer matrix) 
+         matrix-array (float-array (.capacity matrix-ptr))  
+         _ (.get matrix-ptr matrix-array)  
          cqueue (:cqueue device-context)
          cl-centroids (:cl-centroids device-context)]
      (with-release [cl-result (cl-buffer (:ctx device-context) (* num-distances Float/BYTES) :write-only)
-                    cl-matrix (cl-buffer (:ctx device-context) (.capacity matrix-array) :read-only)
+                    cl-matrix (cl-buffer (:ctx device-context) (* n (ncols matrix) Float/BYTES) :read-only)
                     cl-kernel (kernel (:prog device-context) (:kernel device-context))]
        (set-args! cl-kernel cl-result cl-matrix cl-centroids (int-array [num-per]) (int-array [n]) (int-array [num-clusters]))
-       (enq-write! cqueue cl-matrix matrix-array)
+       (enq-write! cqueue cl-matrix matrix-array)  
        (enq-kernel! cqueue cl-kernel work-size)
        (enq-read! cqueue cl-result host-msg)
        (finish! cqueue)
-       (let [data ^java.nio.FloatBuffer (.asFloatBuffer host-msg)
+       (let [data (.asFloatBuffer host-msg)
              res (float-array num-distances)]
          (dotimes [i num-distances]
            (aset res i (.get data)))
          res))))
-  ([device-context
-    ^uncomplicate.neanderthal.internal.host.buffer_block.RealGEMatrix matrix
-    ^uncomplicate.neanderthal.internal.host.buffer_block.RealGEMatrix centroids] 
+
+  ([device-context matrix centroids]
    (let [num-clusters (mrows centroids)
          n (mrows matrix)
          num-distances (* n num-clusters)
          global-size 1024
-         num-per (if (mod n global-size) (inc (quot n global-size)) (quot n global-size))
+         num-per (if (pos? (mod n global-size)) (inc (quot n global-size)) (quot n global-size))
          global-work-size [global-size]
          work-size (work-size global-work-size)
-         host-msg ^java.nio.ByteBuffer (direct-buffer (* num-distances Float/BYTES))
-         centroids-array ^java.nio.FloatBuffer (.buffer centroids)
-         matrix-array ^java.nio.FloatBuffer    (.buffer matrix)
+         host-msg (direct-buffer (* num-distances Float/BYTES))
+         matrix-ptr (buffer matrix) 
+         centroids-ptr (buffer centroids)  
+         matrix-array (float-array (.capacity matrix-ptr))  
+         centroids-array (float-array (.capacity centroids-ptr))  
+         _ (.get matrix-ptr matrix-array)  
+         _ (.get centroids-ptr centroids-array) 
          cqueue (:cqueue device-context)]
      (with-release [cl-result (cl-buffer (:ctx device-context) (* num-distances Float/BYTES) :write-only)
-                    cl-matrix (cl-buffer (:ctx device-context) (.capacity matrix-array) :read-only)
-                    cl-centroids (cl-buffer (:ctx device-context) (.capacity centroids-array) :read-only)
+                    cl-matrix (cl-buffer (:ctx device-context) (* n (ncols matrix) Float/BYTES) :read-only)
+                    cl-centroids (cl-buffer (:ctx device-context) (* num-clusters (ncols centroids) Float/BYTES) :read-only)
                     cl-kernel (kernel (:prog device-context) (:kernel device-context))]
-       (set-args!
-        cl-kernel cl-result cl-matrix cl-centroids (int-array [num-per]) (int-array [n]) (int-array [num-clusters]))
-       (enq-write!  cqueue cl-matrix matrix-array)
-       (enq-write!  cqueue cl-centroids centroids-array)
+       (set-args! cl-kernel cl-result cl-matrix cl-centroids (int-array [num-per]) (int-array [n]) (int-array [num-clusters]))
+       (enq-write! cqueue cl-matrix matrix-array) 
+       (enq-write! cqueue cl-centroids centroids-array) 
        (enq-kernel! cqueue cl-kernel work-size)
-       (enq-read!   cqueue cl-result host-msg)
+       (enq-read! cqueue cl-result host-msg)
        (finish! cqueue)
-       (let [data ^java.nio.FloatBuffer (.asFloatBuffer host-msg)
+       (let [data (.asFloatBuffer host-msg)
              res (float-array num-distances)]
          (dotimes [i num-distances]
            (aset res i (.get data)))
@@ -385,55 +392,69 @@
 
 (defn gpu-distance-min-index
   "Evaluates many distances in parallel."
-  ([device-context
-    ^uncomplicate.neanderthal.internal.host.buffer_block.RealGEMatrix matrix]
+  ([device-context matrix]
    (let [num-clusters (:k device-context)
          n (mrows matrix)
          num-distances (* n num-clusters)
          global-size 1024
-         num-per (if (mod n global-size) (inc (quot n global-size)) (quot n global-size))
+         num-per (if (pos? (mod n global-size)) (inc (quot n global-size)) (quot n global-size))
          global-work-size [global-size]
          work-size (work-size global-work-size)
-         matrix-array ^java.nio.FloatBuffer (.buffer matrix)
+         matrix-ptr (buffer matrix)  
+         matrix-array (float-array (.capacity matrix-ptr))  
+         _ (.get matrix-ptr matrix-array)  
          min-indices (create-min-index-result-array num-clusters n)
          cqueue (:cqueue device-context)
          cl-centroids (:cl-centroids device-context)]
+
      (with-release [cl-result (cl-buffer (:ctx device-context) (* num-distances Float/BYTES) :read-write)
-                    cl-matrix (cl-buffer (:ctx device-context) (.capacity matrix-array) :read-only)]
+                    cl-matrix (cl-buffer (:ctx device-context) (* n (ncols matrix) Float/BYTES) :read-only)]
        (with-release [cl-kernel (kernel (:prog device-context) (:kernel device-context))]
-         (set-args! cl-kernel cl-result cl-matrix cl-centroids (int-array [num-per]) (int-array [n]) (int-array [num-clusters]))
-         (enq-write! cqueue cl-matrix matrix-array)
+         (set-args! cl-kernel cl-result cl-matrix cl-centroids
+                    (int-array [num-per]) (int-array [n]) (int-array [num-clusters]))
+         (enq-write! cqueue cl-matrix matrix-array) 
          (enq-kernel! cqueue cl-kernel work-size)
          (finish! cqueue))
+
        (with-release [cl-min-indexes (create-min-index-buffer (:ctx device-context) num-clusters n)
                       cl-min-kernel (kernel (:min-prog device-context) (:min-kernel device-context))]
-         (set-args! cl-min-kernel cl-result cl-min-indexes (int-array [num-per]) (int-array [n]) (int-array [num-clusters]))
+         (set-args! cl-min-kernel cl-result cl-min-indexes
+                    (int-array [num-per]) (int-array [n]) (int-array [num-clusters]))
          (enq-kernel! cqueue cl-min-kernel work-size)
          (enq-read! cqueue cl-min-indexes min-indices)
          (finish! cqueue)
          min-indices))))
+
   ([device-context matrix assignments points]
    (let [num-clusters (:k device-context)
          n (mrows matrix)
          num-distances (* n num-clusters)
          global-size 1024
-         num-per (if (mod n global-size) (inc (quot n global-size)) (quot n global-size))
+         num-per (if (pos? (mod n global-size)) (inc (quot n global-size)) (quot n global-size))
          global-work-size [global-size]
          work-size (work-size global-work-size)
+         matrix-ptr (buffer matrix)  
+         matrix-array (float-array (.capacity matrix-ptr))  
+         _ (.get matrix-ptr matrix-array) 
          cqueue (:cqueue device-context)
          min-indices (create-min-index-result-array num-clusters n)
          cl-centroids (:cl-centroids device-context)]
+
      (with-release [cl-result (cl-buffer (:ctx device-context) (* num-distances Float/BYTES) :read-write)]
        (with-release [cl-kernel (kernel (:prog device-context) (:kernel device-context))]
-         (set-args! cl-kernel cl-result points cl-centroids (int-array [num-per]) (int-array [n]) (int-array [num-clusters]))
+         (set-args! cl-kernel cl-result points cl-centroids
+                    (int-array [num-per]) (int-array [n]) (int-array [num-clusters]))
          (enq-kernel! cqueue cl-kernel work-size)
          (finish! cqueue))
+
        (with-release [cl-min-kernel (kernel (:min-prog device-context) (:min-kernel device-context))]
-         (set-args! cl-min-kernel cl-result assignments (int-array [num-per]) (int-array [n]) (int-array [num-clusters]))
+         (set-args! cl-min-kernel cl-result assignments
+                    (int-array [num-per]) (int-array [n]) (int-array [num-clusters]))
          (enq-kernel! cqueue cl-min-kernel work-size)
          (enq-read! cqueue assignments min-indices)
          (finish! cqueue)
          min-indices)))))
+
 
 
 ;; The GPU is so much faster than the CPU that we should be preferring 

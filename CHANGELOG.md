@@ -6,6 +6,10 @@ For releases before version [1.0.0] this project *did not* follow [semver](https
 For releases after version 1.0.0 this project *will* follow semver, with the addition that minor 
 releases might only add additional tests and/or documentation updates rather than bug fixes.
 
+## [13.0.5] - 2025-03-12
+
+Bumped versions of various dependencies. 
+
 ## [13.0.41] - 2024-05-17
 
 This release bumps up dependency versions.
