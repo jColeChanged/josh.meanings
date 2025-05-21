@@ -61,3 +61,17 @@ K-means implementation quite a bit faster than other implementations.
 ;; To view the centroids
 (.load-centroids model)
 ```
+
+## Testing
+
+Run the project's unit tests with:
+
+```
+lein test
+```
+
+Tests exercising the GPU code paths require an Nvidia GPU with CUDA support.
+
+## License
+
+Distributed under the terms of the [MIT License](LICENSE).
