@@ -21,6 +21,12 @@ K-means implementation quite a bit faster than other implementations.
 
 [![Clojars Project](https://img.shields.io/clojars/v/org.clojars.joshua/josh.meanings.svg)](https://clojars.org/org.clojars.joshua/josh.meanings)
 
+If you use the Clojure CLI, add the library to your `deps.edn`:
+
+```clojure
+org.clojars.joshua/josh.meanings {:mvn/version "3.0.14"}
+```
+
 ## Getting Started
 
 ```
