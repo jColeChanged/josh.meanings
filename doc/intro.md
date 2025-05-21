@@ -6,7 +6,7 @@ Initialization is implemented as a multimethod whose
 dispatch is chosen by the `:init` keyword. The following 
 initialization methods are supported.
 
- - `:niave`
+ - `:naive`
  - `:k-means-++`
  - `:k-means-parallel`
  - `:k-mc-squared`
@@ -31,7 +31,7 @@ deserialization.
 Some file types aren't well suited to high performance 
 serialization and deserialization. The `:format` keyword controls 
 what file format will be used to persist data during the computation. 
-The list of supports formats are:
+The list of supported formats are:
 
  - `:csv`
  - `:arrow`
@@ -73,7 +73,7 @@ to using :euclidean.
 
 Though it is possible to run k means a single time this is not 
 recommended. In general, k means doesn't find the globally optimal 
-solution. it is especially prone to finding bad clusters when run 
+solution. It is especially prone to finding bad clusters when run
 using naive initialization, but even with k-means-++ and 
 k-means-parallel there is stochasticity. Multiple runs can converge 
 on different solutions. So it makes sense to run multiple times 
