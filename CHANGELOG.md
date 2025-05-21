@@ -1,10 +1,16 @@
 # Change Log
 
-All notable changes to this project will be documented in this file. 
+All notable changes to this project will be documented in this file.
 This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 For releases before version [1.0.0] this project *did not* follow [semver](https://semver.org/).  
-For releases after version 1.0.0 this project *will* follow semver, with the addition that minor 
+For releases after version 1.0.0 this project *will* follow semver, with the addition that minor
 releases might only add additional tests and/or documentation updates rather than bug fixes.
+
+## [13.0.6] - 2025-05-21
+
+### Added
+
+- GPU acceleration for Euclidean, Manhattan, Chebyshev and Euclidean squared distance functions.
 
 ## [13.0.5] - 2025-03-12
 

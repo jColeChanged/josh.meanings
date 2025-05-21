@@ -13,9 +13,9 @@ K-means implementation quite a bit faster than other implementations.
 2. We do our distance calculations on the GPU.
 3. We implement initialization schemes from more recent research.
 
-> [!WARNING]
-> Currently, the default pathway of using the GPU for EMD clustering is implemented, but
-> contributors are needed to bring support for other distance functions.
+> [!NOTE]
+> GPU acceleration is available for several distance functions including EMD,
+> Euclidean, Manhattan, Chebyshev and Euclidean squared.
 
 # Installation
 

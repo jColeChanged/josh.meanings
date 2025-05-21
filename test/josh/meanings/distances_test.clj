@@ -27,29 +27,30 @@
 
 (deftest test-gpu-distance
   (testing "GPU distance calculations."
-    (doseq [test-config [{:dataset-size 10 :centroids 2}
-                         {:dataset-size 100 :centroids 2}
-                         {:dataset-size 100 :centroids 10}
-                         {:dataset-size 1000 :centroids 30}
-                         {:dataset-size 100000 :centroids 30}
-                         {:dataset-size 100000 :centroids 100}]]
-      (let [configuration {:distance-key :emd :col-names ["x" "y" "z"]}
-            gen-dataset (fn [n] (ds/->dataset (repeatedly n (fn [] {"x" (rand) "y" (rand) "z" (rand)}))))
-            ds->matrix (fn [ds] (dsn/dataset->dense ds :row :float32))
-            dataset (gen-dataset (:dataset-size test-config))
-            centroids-dataset (gen-dataset (:centroids test-config))
-            matrix (ds->matrix dataset)
-            centroids-matrix (ds->matrix centroids-dataset)
-            gpu-context (get-device-context configuration centroids-matrix)]
-        (try
-          (let [gpu-dist (gpu-distance gpu-context matrix centroids-matrix)
-                cpu-dist (cpu-distance configuration dataset centroids-dataset)]
-            (is (near-equal? gpu-dist cpu-dist 0.01)
-                (str "Dataset "
-                     (str-float-array gpu-dist)
-                     (str-float-array cpu-dist))))
-          (finally
-            (teardown-device gpu-context)))))))
+    (doseq [distance-key [:emd :euclidean :manhattan :chebyshev :euclidean-sq]]
+      (doseq [test-config [{:dataset-size 10 :centroids 2}
+                           {:dataset-size 100 :centroids 2}
+                           {:dataset-size 100 :centroids 10}
+                           {:dataset-size 1000 :centroids 30}
+                           {:dataset-size 100000 :centroids 30}
+                           {:dataset-size 100000 :centroids 100}]]
+        (let [configuration {:distance-key distance-key :col-names ["x" "y" "z"]}
+              gen-dataset (fn [n] (ds/->dataset (repeatedly n (fn [] {"x" (rand) "y" (rand) "z" (rand)}))))
+              ds->matrix (fn [ds] (dsn/dataset->dense ds :row :float32))
+              dataset (gen-dataset (:dataset-size test-config))
+              centroids-dataset (gen-dataset (:centroids test-config))
+              matrix (ds->matrix dataset)
+              centroids-matrix (ds->matrix centroids-dataset)
+              gpu-context (get-device-context configuration centroids-matrix)]
+          (try
+            (let [gpu-dist (gpu-distance gpu-context matrix centroids-matrix)
+                  cpu-dist (cpu-distance configuration dataset centroids-dataset)]
+              (is (near-equal? gpu-dist cpu-dist 0.01)
+                  (str "Dataset "
+                       (str-float-array gpu-dist)
+                       (str-float-array cpu-dist))))
+            (finally
+              (teardown-device gpu-context))))))))
 
 
 (deftest test-size->bytes
