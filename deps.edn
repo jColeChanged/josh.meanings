@@ -1,0 +1,49 @@
+{:paths ["src/clj" "src/kernels" "resources"]
+ :deps {org.clojure/clojure {:mvn/version "1.11.3"}
+        org.clojure/data.csv {:mvn/version "1.0.1"}
+        babashka/fs {:mvn/version "0.4.18"}
+        techascent/tech.ml.dataset {:mvn/version "7.030"}
+        generateme/fastmath {:mvn/version "2.4.0"}
+        uncomplicate/neanderthal {:mvn/version "0.49.1"}
+        org.bytedeco/mkl {:mvn/version "2024.0-1.5.10" :classifier "linux-x86_64-redist"}
+        org.bytedeco/cuda {:mvn/version "12.3-8.9-1.5.10" :classifier "linux-x86_64-redist"}
+        cnuernber/dtype-next {:mvn/version "10.113"}
+        org.apache.arrow/arrow-vector {:mvn/version "6.0.0"
+                                       :exclusions [commons-codec/commons-codec
+                                                    com.fasterxml.jackson.core/jackson-core
+                                                    com.fasterxml.jackson.core/jackson-annotations
+                                                    com.fasterxml.jackson.core/jackson-databind
+                                                    org.slf4j/slf4j-api]}
+        com.cnuernber/jarrow {:mvn/version "1.000"}
+        org.apache.commons/commons-compress {:mvn/version "1.21"}
+        progrock {:mvn/version "0.1.2"}
+        bsless/clj-fast {:mvn/version "0.0.11"}
+        org.lz4/lz4-java {:mvn/version "1.8.0"}
+        ch.qos.logback/logback-classic {:mvn/version "1.2.10" :exclusions [org.slf4j/slf4j-api]}
+        org.slf4j/jul-to-slf4j {:mvn/version "1.7.35"}
+        org.slf4j/jcl-over-slf4j {:mvn/version "1.7.35"}
+        org.slf4j/log4j-over-slf4j {:mvn/version "1.7.35"}
+        com.taoensso/timbre {:mvn/version "6.3.1"}
+        net.java.dev.jna/jna {:mvn/version "5.14.0"}
+        com.github.luben/zstd-jni {:mvn/version "1.5.5-1"}
+        org.apache.parquet/parquet-hadoop {:mvn/version "1.13.0"
+                                           :exclusions [org.slf4j/slf4j-log4j12]}
+        org.apache.hadoop/hadoop-common {:mvn/version "3.3.0"
+                                         :exclusions [org.slf4j/slf4j-log4j12]}
+        org.apache.hadoop/hadoop-mapreduce-client-core {:mvn/version "3.3.0"
+                                                        :exclusions [org.slf4j/slf4j-log4j12]}
+        org.clojars.joshua/sampling {:mvn/version "3.3"}}
+ :aliases {:dev {:extra-deps {criterium {:mvn/version "0.4.6"}
+                              org.clojure/test.check {:mvn/version "1.1.1"}
+                              com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.0.3"}
+                              com.clojure-goes-fast/clj-java-decompiler {:mvn/version "0.3.4"}
+                              com.clojure-goes-fast/clj-memory-meter {:mvn/version "0.2.2"}}
+                 :jvm-opts ["-Djdk.attach.allowAttachSelf"
+                            "-XX:+TieredCompilation"
+                            "-Xss20m"
+                            "--add-modules" "jdk.incubator.foreign,jdk.incubator.vector"
+                            "--enable-native-access=ALL-UNNAMED"
+                            "--add-opens=java.base/jdk.internal.ref=ALL-UNNAMED"
+                            "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"]
+                 :extra-paths ["test"]}
+           :notebook {:extra-deps {io.github.nextjournal/clerk {:mvn/version "0.15.957"}}}}}
