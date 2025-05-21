@@ -22,10 +22,14 @@
    would. If you don't know why :emd is the default you should probably switch 
    to using :euclidean.
    
-   For some distance functions GPU support can be enabled by setting the :use-gpu 
+   For some distance functions GPU support can be enabled by setting the :use-gpu
    flag to True. GPU distance support is available for:
 
    - :emd
+   - :euclidean
+   - :manhattan
+   - :chebyshev
+   - :euclidean-sq
    "
   (:refer-clojure
    :exclude
@@ -120,7 +124,11 @@
 ;; program and a kernel.  Telling whether GPU support is then as simple as checking 
 ;; for the presence of the relevant key.
 (def gpu-accelerated
-  {:emd  {:program "emd_multi.c" :kernel "wasserstein_distances"}})
+  {:emd          {:program "emd_multi.c" :kernel "wasserstein_distances"}
+   :euclidean    {:program "euclidean_multi.c" :kernel "euclidean_distances"}
+   :manhattan    {:program "manhattan_multi.c" :kernel "manhattan_distances"}
+   :chebyshev    {:program "chebyshev_multi.c" :kernel "chebyshev_distances"}
+   :euclidean-sq {:program "euclidean_sq_multi.c" :kernel "euclidean_sq_distances"}})
 
 ;; We can tell whether we can use an outerloop GPU program instead of innerloop 
 ;; function calls by calling a predicate function.  This will allow for seemless 
